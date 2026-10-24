@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Point2D,
   NetworkWeights,
@@ -13,6 +13,7 @@ import { StoryModeBar, STORY_STEPS, StoryStep } from './components/story/StoryMo
 import { PersonaExplanation } from './components/story/PersonaExplanation';
 import { DatasetPanel } from './components/controls/DatasetPanel';
 import { TrainingPanel } from './components/controls/TrainingPanel';
+import { FailureModesPanel } from './components/controls/FailureModesPanel';
 import { MatrixEditor } from './components/common/MatrixEditor';
 import { ManifoldWarper2D } from './components/warper/ManifoldWarper2D';
 import { SpectralHUD } from './components/warper/SpectralHUD';
@@ -20,14 +21,17 @@ import { SVDInspector } from './components/warper/SVDInspector';
 import { LossLandscapeView } from './components/loss/LossLandscapeView';
 import { BackpropGraph } from './components/graph/BackpropGraph';
 import { MathGuideModal } from './components/common/MathGuideModal';
+import { SingularProofModal } from './components/common/SingularProofModal';
 import { LinearAlgebra } from './math/linearAlgebra';
 
 export function App() {
   // Navigation tab: 'warper' | 'loss' | 'graph'
   const [activeTab, setActiveTab] = useState<'warper' | 'loss' | 'graph'>('warper');
 
-  // Math Guide modal
+  // Math Guide modal & Singular Proof modal
   const [isGuideOpen, setIsGuideOpen] = useState<boolean>(false);
+  const [isSingularProofOpen, setIsSingularProofOpen] = useState<boolean>(false);
+  const collapseAnimRef = useRef<number | null>(null);
 
   // Dual persona: 'beginner' | 'judge'
   const [personaMode, setPersonaMode] = useState<'beginner' | 'judge'>('beginner');
@@ -123,7 +127,90 @@ export function App() {
     setActiveClass(step.activeClass);
   };
 
+  // Cleanup animation frame on unmount
+  useEffect(() => {
+    return () => {
+      if (collapseAnimRef.current !== null) {
+        cancelAnimationFrame(collapseAnimRef.current);
+      }
+    };
+  }, []);
+
+  // Preset 1: 'Trigger Singular Matrix (det(W1) = 0)'
+  // Sets W1 rows to be linearly dependent (e.g. [[1.5, -1.5], [-1.0, 1.0]]),
+  // animates 2D grid collapsing flat onto a 1D line, and displays proof popup
+  const handleTriggerSingularMatrix = () => {
+    // 1. Set linearly dependent rows (Row 2 = -2/3 * Row 1)
+    setWeights(w => ({
+      ...w,
+      W1: [
+        [1.5, -1.5],
+        [-1.0, 1.0],
+      ],
+      b1: [0.0, 0.0],
+    }));
+
+    // 2. Switch to 2D Manifold Warper in homotopy mode
+    setActiveTab('warper');
+    setWarperMode('homotopy');
+    setTau(0.0);
+
+    // 3. Cancel any running animation
+    if (collapseAnimRef.current !== null) {
+      cancelAnimationFrame(collapseAnimRef.current);
+    }
+
+    // 4. Smoothly animate tau from 0 to 1.0 (over 1600ms)
+    const startTimestamp = performance.now();
+    const duration = 1600;
+
+    const animateCollapse = (now: number) => {
+      const elapsed = now - startTimestamp;
+      const progress = Math.min(1.0, elapsed / duration);
+      // Smooth easeInOutCubic curve
+      const ease =
+        progress < 0.5
+          ? 4 * progress * progress * progress
+          : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+
+      setTau(ease * 1.0);
+
+      if (progress < 1.0) {
+        collapseAnimRef.current = requestAnimationFrame(animateCollapse);
+      } else {
+        // Space collapsed to 1D line! Automatically display mathematical proof popup
+        setTimeout(() => {
+          setIsSingularProofOpen(true);
+        }, 300);
+      }
+    };
+
+    collapseAnimRef.current = requestAnimationFrame(animateCollapse);
+  };
+
+  // Preset 2: 'Trigger Vanishing Gradient / Dead ReLU'
+  // Sets biases to negative values with ReLU so all data points fall in negative quadrant where ReLU'(z) = 0
+  const handleTriggerDeadReLU = () => {
+    setWeights(w => ({
+      ...w,
+      activation: 'relu',
+      W1: [
+        [0.8, -0.6],
+        [0.5, 0.9],
+      ],
+      b1: [-3.5, -3.5],
+      W2: [1.2, -1.0],
+      b2: 0.0,
+    }));
+
+    // Switch view to Chain Rule panel to show zeroed partial derivatives
+    setActiveTab('graph');
+  };
+
   const det = LinearAlgebra.det(weights.W1);
+  const isSingularActive = Math.abs(det) < 1e-4;
+  const isDeadReLUActive =
+    weights.activation === 'relu' && weights.b1[0] < -2 && weights.b1[1] < -2;
 
   return (
     <div className="min-h-screen bg-[#090D16] text-slate-100 flex flex-col font-sans selection:bg-cyber-cyan selection:text-black">
@@ -156,6 +243,15 @@ export function App() {
       <main className="flex-1 px-4 py-2 max-w-[1720px] mx-auto w-full grid grid-cols-1 lg:grid-cols-12 gap-3 items-start">
         {/* LEFT COLUMN: Controls, Dataset, & Matrix Editor (Cols 1-3) */}
         <aside className="lg:col-span-3 space-y-3">
+          {/* Mathematical Failure Modes Panel (For Judges & Proof Defense) */}
+          <FailureModesPanel
+            onTriggerSingularMatrix={handleTriggerSingularMatrix}
+            onTriggerDeadReLU={handleTriggerDeadReLU}
+            onOpenSingularProof={() => setIsSingularProofOpen(true)}
+            isSingularActive={isSingularActive}
+            isDeadReLUActive={isDeadReLUActive}
+          />
+
           {/* Dataset Playground Panel */}
           <DatasetPanel
             currentPreset={currentPreset}
@@ -262,6 +358,12 @@ export function App() {
 
       {/* Educational Math Guide Modal */}
       <MathGuideModal isOpen={isGuideOpen} onClose={() => setIsGuideOpen(false)} />
+
+      {/* Singular Matrix Rank Collapse Proof Modal */}
+      <SingularProofModal
+        isOpen={isSingularProofOpen}
+        onClose={() => setIsSingularProofOpen(false)}
+      />
     </div>
   );
 }

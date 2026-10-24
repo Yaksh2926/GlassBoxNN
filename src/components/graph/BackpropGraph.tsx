@@ -264,28 +264,40 @@ export const BackpropGraph: React.FC<BackpropGraphProps> = ({ weights, dataset }
             Live Numerical Factors:
           </span>
           <div className="flex flex-wrap items-center justify-center gap-1 text-[11px] bg-[#0B101D] p-2 rounded border border-[#1E2D4A]">
-            {breakdown.numericalTerms.map((num, i) => (
-              <React.Fragment key={i}>
-                <span
-                  className={`px-1 rounded ${
-                    Math.abs(num) < 1e-4
-                      ? 'bg-rose-950 text-rose-400 font-bold'
-                      : 'text-slate-200'
-                  }`}
-                  title={breakdown.symbolicTerms[i]}
-                >
-                  ({num.toFixed(3)})
-                </span>
-                {i < breakdown.numericalTerms.length - 1 && (
-                  <span className="text-slate-500 font-bold">×</span>
-                )}
-              </React.Fragment>
-            ))}
+            {breakdown.numericalTerms.map((num, i) => {
+              const isZero = Math.abs(num) < 1e-4;
+              return (
+                <React.Fragment key={i}>
+                  <span
+                    className={`px-1.5 py-0.5 rounded font-mono transition-all flex items-center gap-1 ${
+                      isZero
+                        ? 'bg-rose-950 text-rose-300 font-bold border border-rose-500 shadow-md shadow-rose-950/80 animate-pulse'
+                        : 'text-slate-200'
+                    }`}
+                    title={`${breakdown.symbolicTerms[i]} = ${num.toFixed(4)}`}
+                  >
+                    {isZero ? (
+                      <span className="flex items-center gap-1">
+                        <span className="text-[11px] text-rose-300 font-extrabold">0.000</span>
+                        <span className="text-[8px] bg-rose-900/90 text-rose-200 px-1 py-0.2 rounded uppercase tracking-wider font-sans">
+                          ZEROED
+                        </span>
+                      </span>
+                    ) : (
+                      `(${num.toFixed(3)})`
+                    )}
+                  </span>
+                  {i < breakdown.numericalTerms.length - 1 && (
+                    <span className="text-slate-500 font-bold">×</span>
+                  )}
+                </React.Fragment>
+              );
+            })}
             <span className="text-slate-400 font-bold mx-1">=</span>
             <span
-              className={`font-bold px-1.5 py-0.5 rounded ${
+              className={`font-bold px-2 py-0.5 rounded ${
                 breakdown.isDead
-                  ? 'bg-rose-950 text-rose-300 border border-rose-500'
+                  ? 'bg-rose-950 text-rose-300 border border-rose-500 shadow-sm animate-pulse'
                   : 'bg-cyber-cyan/20 text-cyber-cyan'
               }`}
             >
@@ -295,7 +307,17 @@ export const BackpropGraph: React.FC<BackpropGraphProps> = ({ weights, dataset }
         </div>
 
         {breakdown.isDead && (
-          <p className="text-[10px] text-rose-400 pt-1 leading-tight">{breakdown.deadReason}</p>
+          <div className="bg-rose-950/60 border border-rose-500/70 rounded-lg p-2.5 flex items-start gap-2 text-[11px] text-rose-200 mt-2">
+            <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5 animate-pulse" />
+            <div className="space-y-0.5">
+              <div className="font-bold text-rose-300 font-mono">
+                Mathematical Proof: Training Stalls Permanently (Zero Gradient)
+              </div>
+              <p className="text-[10.5px] text-rose-200/90 font-sans leading-tight">
+                {breakdown.deadReason || "Because the chain rule is a product of partial derivatives, any single zero factor (here, the activation derivative) nullifies the entire gradient: ∇ = 0. Upstream weights receive exactly 0 update, stalling optimization."}
+              </p>
+            </div>
+          </div>
         )}
       </div>
     </div>
