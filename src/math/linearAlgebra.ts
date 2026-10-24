@@ -206,4 +206,70 @@ export const LinearAlgebra = {
     const s2 = Math.max(1e-12, svdRes.singularValues[1]);
     return s1 / s2;
   },
+
+  // Interpolate SVD transformation matrix across 3 continuous stages: tau in [0, 3]
+  // tau in [0, 1]: Stage 1 - Identity -> V^T (Orthogonal rotation/reflection)
+  // tau in [1, 2]: Stage 2 - V^T -> Sigma * V^T (Diagonal scaling by singular values)
+  // tau in [2, 3]: Stage 3 - Sigma * V^T -> U * Sigma * V^T = W (Final orthogonal rotation by U)
+  interpolateSVDMatrix(W: Matrix2x2, tauSVD: number): Matrix2x2 {
+    const svd = this.svd(W);
+    const clampedTau = Math.max(0, Math.min(3, tauSVD));
+
+    if (clampedTau <= 1.0) {
+      // Stage 1: Interpolate from I to VT
+      const t = clampedTau;
+      return [
+        [(1 - t) * 1 + t * svd.VT[0][0], t * svd.VT[0][1]],
+        [t * svd.VT[1][0], (1 - t) * 1 + t * svd.VT[1][1]],
+      ];
+    } else if (clampedTau <= 2.0) {
+      // Stage 2: VT -> Sigma * VT
+      const t = clampedTau - 1.0;
+      const s1 = (1 - t) * 1.0 + t * svd.singularValues[0];
+      const s2 = (1 - t) * 1.0 + t * svd.singularValues[1];
+      const Sigma_t: Matrix2x2 = [
+        [s1, 0],
+        [0, s2],
+      ];
+      return this.multiply(Sigma_t, svd.VT);
+    } else {
+      // Stage 3: Sigma * VT -> U * Sigma * VT
+      const t = clampedTau - 2.0;
+      const Sigma: Matrix2x2 = [
+        [svd.singularValues[0], 0],
+        [0, svd.singularValues[1]],
+      ];
+      const SigmaVT = this.multiply(Sigma, svd.VT);
+      const U_t: Matrix2x2 = [
+        [(1 - t) * 1 + t * svd.U[0][0], t * svd.U[0][1]],
+        [t * svd.U[1][0], (1 - t) * 1 + t * svd.U[1][1]],
+      ];
+      return this.multiply(U_t, SigmaVT);
+    }
+  },
+
+  // Get current ellipse principal semi-axes vectors and lengths for visualization
+  getSVDEllipseAxes(W: Matrix2x2, tauSVD: number): {
+    axis1: Vector2D;
+    axis2: Vector2D;
+    len1: number;
+    len2: number;
+  } {
+    const svd = this.svd(W);
+    const M = this.interpolateSVDMatrix(W, tauSVD);
+
+    // Initial orthogonal singular basis vectors v1, v2
+    const v1: Vector2D = [svd.V[0][0], svd.V[1][0]];
+    const v2: Vector2D = [svd.V[0][1], svd.V[1][1]];
+
+    const axis1 = this.transformVector(M, v1);
+    const axis2 = this.transformVector(M, v2);
+
+    return {
+      axis1,
+      axis2,
+      len1: this.norm(axis1),
+      len2: this.norm(axis2),
+    };
+  },
 };

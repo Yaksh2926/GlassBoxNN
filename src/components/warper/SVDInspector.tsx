@@ -2,143 +2,225 @@ import React from 'react';
 import { Matrix2x2 } from '../../math/types';
 import { LinearAlgebra } from '../../math/linearAlgebra';
 import { MathView } from '../common/MathView';
-import { CircleDot, MoveRight, Layers } from 'lucide-react';
+import { CircleDot, Play, Pause, RotateCcw, ArrowRight, Sparkles, Activity } from 'lucide-react';
 
 interface SVDInspectorProps {
   W1: Matrix2x2;
-  svdStep: 0 | 1 | 2 | 3;
-  onSetSvdStep: (step: 0 | 1 | 2 | 3) => void;
-  showSVD: boolean;
-  onToggleShowSVD: (show: boolean) => void;
+  tauSVD: number;
+  onChangeTauSVD: (updater: number | ((prevTau: number) => number)) => void;
+  warperMode: 'homotopy' | 'svd';
+  onChangeWarperMode: (mode: 'homotopy' | 'svd') => void;
 }
 
 export const SVDInspector: React.FC<SVDInspectorProps> = ({
   W1,
-  svdStep,
-  onSetSvdStep,
-  showSVD,
-  onToggleShowSVD,
+  tauSVD,
+  onChangeTauSVD,
+  warperMode,
+  onChangeWarperMode,
 }) => {
   const svd = LinearAlgebra.svd(W1);
+  const det = LinearAlgebra.det(W1);
+  const kappa = LinearAlgebra.conditionNumber(W1);
 
   return (
     <div className="bg-[#0E1524] rounded-xl border border-[#1E2D4A] p-3 space-y-3 shadow-glass">
+      {/* Header */}
       <div className="flex items-center justify-between border-b border-[#1E2D4A]/60 pb-2">
         <div className="flex items-center gap-1.5">
-          <CircleDot className="w-3.5 h-3.5 text-cyber-magenta" />
+          <CircleDot className="w-4 h-4 text-cyber-amber" />
           <h3 className="text-xs font-bold text-slate-200 uppercase tracking-wider">
-            SVD Geometric Decomposition
+            SVD Geometric Decomposition (U Σ Vᵀ)
           </h3>
         </div>
         <button
-          onClick={() => onToggleShowSVD(!showSVD)}
-          className={`text-[10px] font-mono px-2 py-0.5 rounded border transition-colors ${
-            showSVD
-              ? 'bg-cyber-magenta/20 text-cyber-magenta border-cyber-magenta'
+          onClick={() => onChangeWarperMode(warperMode === 'svd' ? 'homotopy' : 'svd')}
+          className={`text-[10px] font-mono px-2 py-0.5 rounded border transition-colors flex items-center gap-1 ${
+            warperMode === 'svd'
+              ? 'bg-cyber-amber/20 text-cyber-amber border-cyber-amber font-bold'
               : 'bg-[#131B2E] text-slate-400 border-[#2A374F] hover:text-white'
           }`}
         >
-          {showSVD ? 'SVD Mode: ACTIVE' : 'Enable SVD Mode'}
+          <Sparkles className="w-3 h-3" />
+          {warperMode === 'svd' ? 'SVD Active on Canvas' : 'Focus Canvas on SVD'}
         </button>
       </div>
 
-      <div className="text-[11px] text-slate-300 font-mono">
-        <MathView
-          math="W_1 = U \Sigma V^T = \begin{pmatrix} u_{11} & u_{12} \\ u_{21} & u_{22} \end{pmatrix} \begin{pmatrix} \sigma_1 & 0 \\ 0 & \sigma_2 \end{pmatrix} \begin{pmatrix} v_{11} & v_{21} \\ v_{12} & v_{22} \end{pmatrix}"
-          block
-          className="text-xs text-cyber-cyan"
+      {/* KaTeX Live Matrix Equation */}
+      <div className="bg-[#0B101D] p-3 rounded-lg border border-[#1E2D4A] space-y-1.5 font-mono text-[11px] overflow-x-auto">
+        <div className="text-slate-400 text-[10px] uppercase font-semibold flex items-center justify-between">
+          <span>Live Matrix Factorization:</span>
+          <span className="text-cyber-cyan">W₁ = U · Σ · Vᵀ</span>
+        </div>
+        <div className="text-center py-1">
+          <MathView
+            math={`\\begin{pmatrix} ${W1[0][0].toFixed(2)} & ${W1[0][1].toFixed(2)} \\\\ ${W1[1][0].toFixed(2)} & ${W1[1][1].toFixed(2)} \\end{pmatrix} = \\begin{pmatrix} ${svd.U[0][0].toFixed(2)} & ${svd.U[0][1].toFixed(2)} \\\\ ${svd.U[1][0].toFixed(2)} & ${svd.U[1][1].toFixed(2)} \\end{pmatrix} \\begin{pmatrix} ${svd.singularValues[0].toFixed(2)} & 0.00 \\\\ 0.00 & ${svd.singularValues[1].toFixed(2)} \\end{pmatrix} \\begin{pmatrix} ${svd.VT[0][0].toFixed(2)} & ${svd.VT[0][1].toFixed(2)} \\\\ ${svd.VT[1][0].toFixed(2)} & ${svd.VT[1][1].toFixed(2)} \\end{pmatrix}`}
+            block
+            className="text-xs text-slate-100"
+          />
+        </div>
+      </div>
+
+      {/* Sub-Scrubber Controls */}
+      <div className="space-y-1.5 bg-[#131B2E] p-2.5 rounded-lg border border-[#2A374F] font-mono text-xs">
+        <div className="flex items-center justify-between text-[10px]">
+          <span className="text-slate-300 font-semibold uppercase">3-Stage SVD Sub-Scrubber:</span>
+          <span className="text-cyber-amber font-bold">τ_svd = {tauSVD.toFixed(2)}</span>
+        </div>
+
+        <input
+          type="range"
+          min="0"
+          max="3"
+          step="0.01"
+          value={tauSVD}
+          onChange={e => {
+            if (warperMode !== 'svd') onChangeWarperMode('svd');
+            onChangeTauSVD(parseFloat(e.target.value));
+          }}
+          className="w-full slider-amber"
         />
-      </div>
 
-      {/* SVD Step Buttons */}
-      <div className="space-y-1.5">
-        <span className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">
-          Geometric Sequence:
-        </span>
-        <div className="grid grid-cols-4 gap-1.5 text-[10px] font-mono">
+        {/* 4 stage selector buttons */}
+        <div className="grid grid-cols-4 gap-1 text-[9px] pt-1">
           <button
-            onClick={() => onSetSvdStep(0)}
-            className={`p-1.5 rounded border text-center transition-all ${
-              svdStep === 0
+            onClick={() => {
+              if (warperMode !== 'svd') onChangeWarperMode('svd');
+              onChangeTauSVD(0.0);
+            }}
+            className={`p-1 rounded border text-center transition-all ${
+              tauSVD === 0.0
                 ? 'bg-cyber-cyan/20 border-cyber-cyan text-cyber-cyan font-bold'
-                : 'bg-[#131B2E] border-[#2A374F] text-slate-400 hover:text-white'
+                : 'bg-[#0B101D] border-[#1E2D4A] text-slate-400 hover:text-white'
             }`}
           >
-            Direct W₁
+            0: Circle (I)
           </button>
           <button
-            onClick={() => onSetSvdStep(1)}
-            className={`p-1.5 rounded border text-center transition-all ${
-              svdStep === 1
+            onClick={() => {
+              if (warperMode !== 'svd') onChangeWarperMode('svd');
+              onChangeTauSVD(1.0);
+            }}
+            className={`p-1 rounded border text-center transition-all ${
+              tauSVD > 0.0 && tauSVD <= 1.0
                 ? 'bg-cyber-violet/25 border-cyber-violet text-cyber-violet font-bold'
-                : 'bg-[#131B2E] border-[#2A374F] text-slate-400 hover:text-white'
+                : 'bg-[#0B101D] border-[#1E2D4A] text-slate-400 hover:text-white'
             }`}
           >
-            1. Vᵀ Rotate
+            1: Vᵀ Rotate
           </button>
           <button
-            onClick={() => onSetSvdStep(2)}
-            className={`p-1.5 rounded border text-center transition-all ${
-              svdStep === 2
+            onClick={() => {
+              if (warperMode !== 'svd') onChangeWarperMode('svd');
+              onChangeTauSVD(2.0);
+            }}
+            className={`p-1 rounded border text-center transition-all ${
+              tauSVD > 1.0 && tauSVD <= 2.0
                 ? 'bg-cyber-amber/25 border-cyber-amber text-cyber-amber font-bold'
-                : 'bg-[#131B2E] border-[#2A374F] text-slate-400 hover:text-white'
+                : 'bg-[#0B101D] border-[#1E2D4A] text-slate-400 hover:text-white'
             }`}
           >
-            2. Σ Stretch
+            2: Σ Ellipse
           </button>
           <button
-            onClick={() => onSetSvdStep(3)}
-            className={`p-1.5 rounded border text-center transition-all ${
-              svdStep === 3
+            onClick={() => {
+              if (warperMode !== 'svd') onChangeWarperMode('svd');
+              onChangeTauSVD(3.0);
+            }}
+            className={`p-1 rounded border text-center transition-all ${
+              tauSVD > 2.0
                 ? 'bg-cyber-magenta/25 border-cyber-magenta text-cyber-magenta font-bold'
-                : 'bg-[#131B2E] border-[#2A374F] text-slate-400 hover:text-white'
+                : 'bg-[#0B101D] border-[#1E2D4A] text-slate-400 hover:text-white'
             }`}
           >
-            3. U Rotate
+            3: U Rotate
           </button>
         </div>
       </div>
 
-      {/* Numerical Matrices Display */}
-      <div className="grid grid-cols-3 gap-1.5 text-[9px] font-mono bg-[#0B101D] p-2 rounded-lg border border-[#1E2D4A]">
-        {/* Matrix U */}
-        <div className="border-r border-[#1E2D4A] pr-1.5">
-          <span className="text-cyber-magenta font-bold block mb-1">Matrix U (Output Rotation)</span>
-          <div className="text-slate-300">
-            [{svd.U[0][0].toFixed(2)}, {svd.U[0][1].toFixed(2)}]
+      {/* 3 Matrix Cards with Explanations */}
+      <div className="grid grid-cols-3 gap-2 text-[10px] font-mono">
+        {/* Card 1: V^T */}
+        <div
+          className={`p-2 rounded-lg border transition-all ${
+            tauSVD <= 1.0
+              ? 'bg-[#131B2E] border-cyber-violet shadow-violet-glow'
+              : 'bg-[#0B101D] border-[#1E2D4A]'
+          }`}
+        >
+          <span className="text-cyber-violet font-bold block mb-1">1. Matrix Vᵀ</span>
+          <div className="text-slate-200">
+            [{svd.VT[0][0].toFixed(2)}, {svd.VT[0][1].toFixed(2)}]
           </div>
-          <div className="text-slate-300">
-            [{svd.U[1][0].toFixed(2)}, {svd.U[1][1].toFixed(2)}]
+          <div className="text-slate-200">
+            [{svd.VT[1][0].toFixed(2)}, {svd.VT[1][1].toFixed(2)}]
           </div>
+          <p className="text-[9px] text-slate-400 mt-1 leading-tight">
+            Input space orthogonal rotation aligning canonical singular vectors.
+          </p>
         </div>
 
-        {/* Matrix Sigma */}
-        <div className="border-r border-[#1E2D4A] px-1.5">
-          <span className="text-cyber-amber font-bold block mb-1">Matrix Σ (Singular Stretches)</span>
+        {/* Card 2: Sigma */}
+        <div
+          className={`p-2 rounded-lg border transition-all ${
+            tauSVD > 1.0 && tauSVD <= 2.0
+              ? 'bg-[#131B2E] border-cyber-amber shadow-amber-glow'
+              : 'bg-[#0B101D] border-[#1E2D4A]'
+          }`}
+        >
+          <span className="text-cyber-amber font-bold block mb-1">2. Matrix Σ</span>
           <div className="text-cyber-amber font-semibold">
             [{svd.singularValues[0].toFixed(2)}, 0.00]
           </div>
           <div className="text-cyber-amber font-semibold">
             [0.00, {svd.singularValues[1].toFixed(2)}]
           </div>
+          <p className="text-[9px] text-slate-400 mt-1 leading-tight">
+            Diagonal stretching: Unit circle deforms into ellipse with semi-axes σ₁ & σ₂.
+          </p>
         </div>
 
-        {/* Matrix V^T */}
-        <div className="pl-1.5">
-          <span className="text-cyber-violet font-bold block mb-1">Matrix Vᵀ (Input Rotation)</span>
-          <div className="text-slate-300">
-            [{svd.VT[0][0].toFixed(2)}, {svd.VT[0][1].toFixed(2)}]
+        {/* Card 3: U */}
+        <div
+          className={`p-2 rounded-lg border transition-all ${
+            tauSVD > 2.0
+              ? 'bg-[#131B2E] border-cyber-magenta shadow-magenta-glow'
+              : 'bg-[#0B101D] border-[#1E2D4A]'
+          }`}
+        >
+          <span className="text-cyber-magenta font-bold block mb-1">3. Matrix U</span>
+          <div className="text-slate-200">
+            [{svd.U[0][0].toFixed(2)}, {svd.U[0][1].toFixed(2)}]
           </div>
-          <div className="text-slate-300">
-            [{svd.VT[1][0].toFixed(2)}, {svd.VT[1][1].toFixed(2)}]
+          <div className="text-slate-200">
+            [{svd.U[1][0].toFixed(2)}, {svd.U[1][1].toFixed(2)}]
           </div>
+          <p className="text-[9px] text-slate-400 mt-1 leading-tight">
+            Output space orthogonal rotation orienting ellipse into final state.
+          </p>
         </div>
       </div>
 
-      <div className="text-[10px] text-slate-400 font-mono bg-[#131B2E] p-2 rounded border border-[#2A374F] leading-relaxed">
-        <span className="text-cyber-cyan font-bold">Singular Value Theorem:</span> Every linear
-        transformation decomposes into a rotation to align axes, an orthogonal stretching of the
-        unit sphere into an ellipse with semi-axes <MathView math="\sigma_1, \sigma_2" className="text-[9px]" />, and a final rotation.
+      {/* SVD Key Invariant Properties */}
+      <div className="bg-[#131B2E] p-2.5 rounded-lg border border-[#2A374F] font-mono text-[10px] space-y-1">
+        <div className="flex items-center justify-between">
+          <span className="text-slate-400">Area Scaling |det(W₁)|:</span>
+          <span className="text-cyber-cyan font-bold">{Math.abs(det).toFixed(3)} (= σ₁ · σ₂)</span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-slate-400">Condition Number κ(W₁):</span>
+          <span className="text-cyber-amber font-bold">
+            {kappa > 999 ? '> 999' : kappa.toFixed(2)} (= σ₁ / σ₂)
+          </span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-slate-400">Ellipse Eccentricity e:</span>
+          <span className="text-cyber-violet font-bold">
+            {svd.singularValues[0] > 0
+              ? Math.sqrt(Math.max(0, 1 - (svd.singularValues[1] / svd.singularValues[0]) ** 2)).toFixed(3)
+              : '0.000'}
+          </span>
+        </div>
       </div>
     </div>
   );

@@ -56,6 +56,41 @@ describe('Linear Algebra Engine', () => {
     expect(reconstructed[1][0]).toBeCloseTo(W[1][0], 2);
     expect(reconstructed[1][1]).toBeCloseTo(W[1][1], 2);
   });
+
+  it('smoothly interpolates SVD through 3 stages from Identity to W', () => {
+    const W: Matrix2x2 = [[1.5, 0.8], [-0.5, 2.0]];
+    const svd = LinearAlgebra.svd(W);
+
+    // Stage 0: Identity
+    const M0 = LinearAlgebra.interpolateSVDMatrix(W, 0);
+    expect(M0[0][0]).toBeCloseTo(1, 4);
+    expect(M0[0][1]).toBeCloseTo(0, 4);
+    expect(M0[1][0]).toBeCloseTo(0, 4);
+    expect(M0[1][1]).toBeCloseTo(1, 4);
+
+    // Stage 1: VT
+    const M1 = LinearAlgebra.interpolateSVDMatrix(W, 1.0);
+    expect(M1[0][0]).toBeCloseTo(svd.VT[0][0], 3);
+    expect(M1[0][1]).toBeCloseTo(svd.VT[0][1], 3);
+    expect(M1[1][0]).toBeCloseTo(svd.VT[1][0], 3);
+    expect(M1[1][1]).toBeCloseTo(svd.VT[1][1], 3);
+
+    // Stage 3: Full W
+    const M3 = LinearAlgebra.interpolateSVDMatrix(W, 3.0);
+    expect(M3[0][0]).toBeCloseTo(W[0][0], 2);
+    expect(M3[0][1]).toBeCloseTo(W[0][1], 2);
+    expect(M3[1][0]).toBeCloseTo(W[1][0], 2);
+    expect(M3[1][1]).toBeCloseTo(W[1][1], 2);
+
+    // Ellipse axes lengths at Stage 2 and Stage 3 match singular values
+    const axes2 = LinearAlgebra.getSVDEllipseAxes(W, 2.0);
+    expect(axes2.len1).toBeCloseTo(svd.singularValues[0], 2);
+    expect(axes2.len2).toBeCloseTo(svd.singularValues[1], 2);
+
+    const axes3 = LinearAlgebra.getSVDEllipseAxes(W, 3.0);
+    expect(axes3.len1).toBeCloseTo(svd.singularValues[0], 2);
+    expect(axes3.len2).toBeCloseTo(svd.singularValues[1], 2);
+  });
 });
 
 describe('Activation Functions', () => {

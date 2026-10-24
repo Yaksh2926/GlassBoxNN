@@ -58,11 +58,11 @@ export function App() {
     beta2: 0.999,
   });
 
-  // 2D Manifold Warper state
+  // 2D Manifold Warper & SVD state
   const [tau, setTau] = useState<number>(0.0);
+  const [tauSVD, setTauSVD] = useState<number>(0.0);
+  const [warperMode, setWarperMode] = useState<'homotopy' | 'svd'>('homotopy');
   const [showHeatmap, setShowHeatmap] = useState<boolean>(true);
-  const [showSVDDecomposition, setShowSVDDecomposition] = useState<boolean>(false);
-  const [svdStep, setSvdStep] = useState<0 | 1 | 2 | 3>(0);
 
   // Handle Preset selection
   const handleSelectPreset = (preset: DatasetPreset) => {
@@ -100,6 +100,7 @@ export function App() {
       activation: 'relu',
     });
     setTau(0.0);
+    setTauSVD(0.0);
   };
 
   // Reset everything to factory defaults
@@ -107,6 +108,7 @@ export function App() {
     handleSelectPreset('xor');
     handleResetNetwork();
     setActiveTab('warper');
+    setWarperMode('homotopy');
     setCurrentStoryStepId(1);
   };
 
@@ -195,11 +197,13 @@ export function App() {
               dataset={dataset}
               tau={tau}
               onChangeTau={setTau}
+              tauSVD={tauSVD}
+              onChangeTauSVD={setTauSVD}
+              warperMode={warperMode}
+              onChangeWarperMode={setWarperMode}
               onAddPoint={handleAddPoint}
               activeClass={activeClass}
               showHeatmap={showHeatmap}
-              showSVDDecomposition={showSVDDecomposition}
-              svdStep={svdStep}
             />
           )}
 
@@ -232,10 +236,10 @@ export function App() {
           {/* SVD Step-by-Step Geometric Decomposer */}
           <SVDInspector
             W1={weights.W1}
-            svdStep={svdStep}
-            onSetSvdStep={setSvdStep}
-            showSVD={showSVDDecomposition}
-            onToggleShowSVD={setShowSVDDecomposition}
+            tauSVD={tauSVD}
+            onChangeTauSVD={setTauSVD}
+            warperMode={warperMode}
+            onChangeWarperMode={setWarperMode}
           />
 
           {/* Quick Context View: Backprop Graph preview if on Warper, or Warper preview if on Loss */}
