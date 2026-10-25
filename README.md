@@ -3,6 +3,9 @@
 > **"Open the Black Box. See the Mathematics."**  
 > A competitive mathematics ideathon project for **MathX: A New Dimension of Mathematics**, organized by the **Infinity Society** at **Guru Tegh Bahadur Institute of Technology (GTBIT)**.
 
+👉 **Looking for the complete mathematical monograph and step-by-step tutorial?**  
+Read the full [Comprehensive Project Report & Step-by-Step Tutorial (PROJECT_REPORT.md)](file:///c:/Users/Asus/OneDrive/Desktop/GlassBoxNN/PROJECT_REPORT.md) — featuring derivations from basic principles, 4-stage SVD pipelines, Rank-Nullity failure proofs, 3-optimizer benchmarks, and interactive hardware graph walkthroughs!
+
 ---
 
 ## 1. Product Vision & Proposition
