@@ -15,6 +15,8 @@ interface ManifoldWarper2DProps {
   onAddPoint: (pt: Point2D) => void;
   activeClass: 0 | 1;
   showHeatmap: boolean;
+  selectedPoint?: Point2D | null;
+  onSelectPoint?: (pt: Point2D | null) => void;
   className?: string;
 }
 
@@ -30,6 +32,8 @@ export const ManifoldWarper2D: React.FC<ManifoldWarper2DProps> = ({
   onAddPoint,
   activeClass,
   showHeatmap,
+  selectedPoint = null,
+  onSelectPoint,
   className = '',
 }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -100,7 +104,6 @@ export const ManifoldWarper2D: React.FC<ManifoldWarper2DProps> = ({
 
     const cx = width / 2;
     const cy = height / 2;
-    // Scale so domain fits cleanly with padding
     const minDim = Math.min(width, height);
     const scale = minDim / (domain * 2.1);
 
@@ -114,11 +117,11 @@ export const ManifoldWarper2D: React.FC<ManifoldWarper2DProps> = ({
       (cy - sy) / scale,
     ];
 
-    // 1. Clear background to Obsidian void
-    ctx.fillStyle = '#05070B';
+    // 1. Clear background to Mathematical Observatory Obsidian
+    ctx.fillStyle = '#0B1020';
     ctx.fillRect(0, 0, width, height);
 
-    // 2. Decision Boundary Probability Heatmap
+    // 2. Decision Boundary Probability Heatmap (Restrained tint)
     if (showHeatmap && warperMode === 'homotopy') {
       const res = 56;
       const cellW = width / res;
@@ -135,26 +138,26 @@ export const ManifoldWarper2D: React.FC<ManifoldWarper2DProps> = ({
           const prob = Activations.fn(z2, 'sigmoid');
 
           if (prob < 0.5) {
-            const alpha = (0.5 - prob) * 0.35;
-            ctx.fillStyle = `rgba(0, 245, 212, ${alpha})`;
+            const alpha = (0.5 - prob) * 0.22;
+            ctx.fillStyle = `rgba(83, 212, 244, ${alpha})`;
           } else {
-            const alpha = (prob - 0.5) * 0.35;
-            ctx.fillStyle = `rgba(255, 42, 133, ${alpha})`;
+            const alpha = (prob - 0.5) * 0.22;
+            ctx.fillStyle = `rgba(240, 120, 197, ${alpha})`;
           }
           ctx.fillRect(i * cellW, j * cellH, cellW + 1, cellH + 1);
         }
       }
     }
 
-    // 3. Sub-grid & Major Grid (3Blue1Brown Style)
+    // 3. Sub-grid & Major Grid
     const gridRange = 3.5;
     const samplesPerLine = 48;
 
     // Faint Sub-grid lines every 0.25 units
     ctx.lineWidth = 0.5;
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.035)';
+    ctx.strokeStyle = '#182438';
     for (let gy = -gridRange; gy <= gridRange + 1e-5; gy += 0.25) {
-      if (Math.abs(gy % 1.0) < 0.05) continue; // skip major lines
+      if (Math.abs(gy % 1.0) < 0.05) continue;
       ctx.beginPath();
       for (let s = 0; s <= samplesPerLine; s++) {
         const gx = -gridRange + (s / samplesPerLine) * (2 * gridRange);
@@ -181,8 +184,8 @@ export const ManifoldWarper2D: React.FC<ManifoldWarper2DProps> = ({
     // Crisp Major Grid lines every 1.0 unit
     for (let gy = -gridRange; gy <= gridRange + 1e-5; gy += 1.0) {
       const isAxis = Math.abs(gy) < 1e-4;
-      ctx.lineWidth = isAxis ? 1.5 : 1.0;
-      ctx.strokeStyle = isAxis ? 'rgba(255, 255, 255, 0.45)' : 'rgba(0, 245, 212, 0.14)';
+      ctx.lineWidth = isAxis ? 1.5 : 0.8;
+      ctx.strokeStyle = isAxis ? 'rgba(244, 247, 251, 0.45)' : '#29374B';
       ctx.beginPath();
       for (let s = 0; s <= samplesPerLine; s++) {
         const gx = -gridRange + (s / samplesPerLine) * (2 * gridRange);
@@ -196,8 +199,8 @@ export const ManifoldWarper2D: React.FC<ManifoldWarper2DProps> = ({
 
     for (let gx = -gridRange; gx <= gridRange + 1e-5; gx += 1.0) {
       const isAxis = Math.abs(gx) < 1e-4;
-      ctx.lineWidth = isAxis ? 1.5 : 1.0;
-      ctx.strokeStyle = isAxis ? 'rgba(255, 255, 255, 0.45)' : 'rgba(0, 245, 212, 0.14)';
+      ctx.lineWidth = isAxis ? 1.5 : 0.8;
+      ctx.strokeStyle = isAxis ? 'rgba(244, 247, 251, 0.45)' : '#29374B';
       ctx.beginPath();
       for (let s = 0; s <= samplesPerLine; s++) {
         const gy = -gridRange + (s / samplesPerLine) * (2 * gridRange);
@@ -209,24 +212,36 @@ export const ManifoldWarper2D: React.FC<ManifoldWarper2DProps> = ({
       ctx.stroke();
     }
 
-    // Helper: Draw Vector Arrow with glowing hat
+    // Axis Tick Labels (Numeric ground-truth)
+    ctx.font = '9px "JetBrains Mono", monospace';
+    ctx.fillStyle = '#9DAFC3';
+    for (let t = -3; t <= 3; t++) {
+      if (t === 0) continue;
+      const [tx, ty] = mapPoint(t, 0);
+      const [tsx, tsy] = toScreen(tx, ty);
+      ctx.fillText(t.toString(), tsx - 4, tsy + 12);
+
+      const [tx2, ty2] = mapPoint(0, t);
+      const [tsx2, tsy2] = toScreen(tx2, ty2);
+      ctx.fillText(t.toString(), tsx2 + 6, tsy2 + 3);
+    }
+
+    // Helper: Draw Vector Arrow
     const drawVector = (
       from: [number, number],
       to: [number, number],
       color: string,
       label: string,
-      lineWidth = 2.5
+      lineWidth = 2.0
     ) => {
       const dx = to[0] - from[0];
       const dy = to[1] - from[1];
       const angle = Math.atan2(dy, dx);
-      const headLen = 10;
+      const headLen = 9;
 
       ctx.strokeStyle = color;
       ctx.fillStyle = color;
       ctx.lineWidth = lineWidth;
-      ctx.shadowColor = color;
-      ctx.shadowBlur = 8;
 
       ctx.beginPath();
       ctx.moveTo(from[0], from[1]);
@@ -245,16 +260,15 @@ export const ManifoldWarper2D: React.FC<ManifoldWarper2DProps> = ({
       );
       ctx.closePath();
       ctx.fill();
-      ctx.shadowBlur = 0;
 
-      // Vector label with background pill
+      // Vector label
       ctx.font = 'bold 11px "JetBrains Mono", monospace';
       const labelMetrics = ctx.measureText(label);
-      const lx = to[0] + 10;
+      const lx = to[0] + 8;
       const ly = to[1] - 4;
 
-      ctx.fillStyle = 'rgba(5, 7, 11, 0.85)';
-      ctx.fillRect(lx - 2, ly - 10, labelMetrics.width + 4, 13);
+      ctx.fillStyle = 'rgba(11, 16, 32, 0.9)';
+      ctx.fillRect(lx - 2, ly - 9, labelMetrics.width + 4, 12);
       ctx.fillStyle = color;
       ctx.fillText(label, lx, ly);
     };
@@ -279,65 +293,53 @@ export const ManifoldWarper2D: React.FC<ManifoldWarper2DProps> = ({
       ctx.lineTo(sJ[0], sJ[1]);
       ctx.closePath();
 
-      // Translucent emerald / cyan gradient fill
-      const grad = ctx.createLinearGradient(sO[0], sO[1], sDiag[0], sDiag[1]);
-      grad.addColorStop(0, 'rgba(0, 245, 212, 0.22)');
-      grad.addColorStop(1, 'rgba(16, 185, 129, 0.12)');
-      ctx.fillStyle = grad;
+      ctx.fillStyle = 'rgba(83, 212, 244, 0.12)';
       ctx.fill();
-
-      ctx.strokeStyle = 'rgba(0, 245, 212, 0.6)';
+      ctx.strokeStyle = 'rgba(83, 212, 244, 0.5)';
       ctx.lineWidth = 1.5;
       ctx.stroke();
 
-      // Floating Area Label inside centroid of parallelogram
+      // Area Badge in Centroid
       const centroidX = (sO[0] + sI[0] + sDiag[0] + sJ[0]) / 4;
       const centroidY = (sO[1] + sI[1] + sDiag[1] + sJ[1]) / 4;
-
-      // Calculate live determinant area scaling
       const detVal = LinearAlgebra.det(weights.W1);
       const currentArea = (1 - Math.min(1, tau)) * 1.0 + Math.min(1, tau) * Math.abs(detVal);
 
-      ctx.font = 'bold 10px "JetBrains Mono", monospace';
+      ctx.font = '10px "JetBrains Mono", monospace';
       const areaText = `Area = |det| = ${currentArea.toFixed(2)}x`;
       const textWidth = ctx.measureText(areaText).width;
 
-      ctx.fillStyle = 'rgba(5, 7, 11, 0.85)';
-      ctx.strokeStyle = 'rgba(0, 245, 212, 0.3)';
+      ctx.fillStyle = '#111A2A';
+      ctx.strokeStyle = '#29374B';
       ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.roundRect(centroidX - textWidth / 2 - 5, centroidY - 8, textWidth + 10, 16, 4);
+      ctx.roundRect(centroidX - textWidth / 2 - 4, centroidY - 8, textWidth + 8, 16, 4);
       ctx.fill();
       ctx.stroke();
 
-      ctx.fillStyle = '#00F5D4';
+      ctx.fillStyle = '#53D4F4';
       ctx.textAlign = 'center';
       ctx.fillText(areaText, centroidX, centroidY + 3);
-      ctx.textAlign = 'start'; // reset
+      ctx.textAlign = 'start';
 
-      // Draw Basis Vectors î and ĵ
-      drawVector(sO, sI, '#10B981', 'î');
-      drawVector(sO, sJ, '#F59E0B', 'ĵ');
+      // Basis vectors
+      drawVector(sO, sI, '#53D4F4', 'î');
+      drawVector(sO, sJ, '#F7C76B', 'ĵ');
     }
 
     // 5. Activation Fold Crease Lines (tau in [1, 2])
     if (warperMode === 'homotopy' && tau >= 0.9 && tau <= 2.2) {
-      // Line 1: w11 * x + w12 * y + b1 = 0
-      // Line 2: w21 * x + w22 * y + b2 = 0
       const lines = [
-        { w: weights.W1[0], b: weights.b1[0], label: 'Fold Axis 1' },
-        { w: weights.W1[1], b: weights.b1[1], label: 'Fold Axis 2' },
+        { w: weights.W1[0], b: weights.b1[0] },
+        { w: weights.W1[1], b: weights.b1[1] },
       ];
 
-      lines.forEach(({ w, b, label }, idx) => {
+      lines.forEach(({ w, b }, idx) => {
         if (Math.abs(w[0]) < 1e-4 && Math.abs(w[1]) < 1e-4) return;
-
         ctx.save();
-        ctx.setLineDash([6, 4]);
-        ctx.strokeStyle = idx === 0 ? 'rgba(139, 92, 246, 0.85)' : 'rgba(255, 42, 133, 0.85)';
+        ctx.setLineDash([5, 4]);
+        ctx.strokeStyle = idx === 0 ? '#8B5CF6' : '#F078C5';
         ctx.lineWidth = 1.5;
-        ctx.shadowColor = idx === 0 ? '#8B5CF6' : '#FF2A85';
-        ctx.shadowBlur = 8;
 
         ctx.beginPath();
         const foldSamples = 40;
@@ -351,7 +353,6 @@ export const ManifoldWarper2D: React.FC<ManifoldWarper2DProps> = ({
             ly = tLine;
             lx = (-b - w[1] * ly) / w[0];
           }
-
           const [mx, my] = mapPoint(lx, ly);
           const [sx, sy] = toScreen(mx, my);
           if (s === 0) ctx.moveTo(sx, sy);
@@ -362,9 +363,9 @@ export const ManifoldWarper2D: React.FC<ManifoldWarper2DProps> = ({
       });
     }
 
-    // 6. SVD Unit Circle & Ellipse Deformation (SVD Mode)
+    // 6. SVD Mode: Unit Circle & Ellipse Deformation
     if (warperMode === 'svd') {
-      const circlePts = 140;
+      const circlePts = 120;
       ctx.beginPath();
       for (let i = 0; i <= circlePts; i++) {
         const theta = (i / circlePts) * 2 * Math.PI;
@@ -376,24 +377,18 @@ export const ManifoldWarper2D: React.FC<ManifoldWarper2DProps> = ({
         else ctx.lineTo(sx, sy);
       }
       ctx.closePath();
-      ctx.fillStyle = 'rgba(0, 245, 212, 0.14)';
+      ctx.fillStyle = 'rgba(83, 212, 244, 0.12)';
       ctx.fill();
-
-      ctx.strokeStyle = '#00F5D4';
-      ctx.lineWidth = 2.5;
-      ctx.shadowColor = '#00F5D4';
-      ctx.shadowBlur = 10;
+      ctx.strokeStyle = '#53D4F4';
+      ctx.lineWidth = 2;
       ctx.stroke();
-      ctx.shadowBlur = 0;
 
-      // Draw Principal Semi-Axes Vectors of the Ellipse
       const axes = LinearAlgebra.getSVDEllipseAxes(weights.W1, tauSVD);
       const originScreen = toScreen(0, 0);
       const sAxis1 = toScreen(axes.axis1[0], axes.axis1[1]);
       const sAxis2 = toScreen(axes.axis2[0], axes.axis2[1]);
-
-      drawVector(originScreen, sAxis1, '#F59E0B', `σ₁: ${axes.len1.toFixed(2)}`, 2.5);
-      drawVector(originScreen, sAxis2, '#8B5CF6', `σ₂: ${axes.len2.toFixed(2)}`, 2.5);
+      drawVector(originScreen, sAxis1, '#F7C76B', `σ₁: ${axes.len1.toFixed(2)}`, 2);
+      drawVector(originScreen, sAxis2, '#8B5CF6', `σ₂: ${axes.len2.toFixed(2)}`, 2);
     }
 
     // 7. Decision Boundary Hyperplane (tau >= 1.5)
@@ -402,10 +397,8 @@ export const ManifoldWarper2D: React.FC<ManifoldWarper2DProps> = ({
       const w2_1 = weights.W2[1];
       const b2 = weights.b2;
 
-      ctx.lineWidth = 2.5;
-      ctx.strokeStyle = '#FFFFFF';
-      ctx.shadowColor = '#00F5D4';
-      ctx.shadowBlur = 12;
+      ctx.lineWidth = 2.0;
+      ctx.strokeStyle = '#F4F7FB';
       ctx.beginPath();
 
       if (Math.abs(w2_1) > 1e-4) {
@@ -425,49 +418,68 @@ export const ManifoldWarper2D: React.FC<ManifoldWarper2DProps> = ({
         ctx.lineTo(sB[0], sB[1]);
       }
       ctx.stroke();
-      ctx.shadowBlur = 0;
     }
 
-    // 8. Data Points with Outer Halos & White Cores
-    for (const pt of dataset) {
+    // 8. Data Points (Class 0: Cyan Circle, Class 1: Pink Diamond)
+    for (let idx = 0; idx < dataset.length; idx++) {
+      const pt = dataset[idx];
       const [mx, my] = mapPoint(pt.x, pt.y);
       const [sx, sy] = toScreen(mx, my);
 
-      // Outer radial glow halo
-      ctx.beginPath();
-      ctx.arc(sx, sy, 8, 0, 2 * Math.PI);
-      ctx.fillStyle = pt.label === 0 ? 'rgba(0, 245, 212, 0.28)' : 'rgba(255, 42, 133, 0.28)';
-      ctx.fill();
+      const isSelected =
+        selectedPoint !== null &&
+        Math.abs(selectedPoint.x - pt.x) < 1e-3 &&
+        Math.abs(selectedPoint.y - pt.y) < 1e-3;
 
-      // Colored body ring
-      ctx.beginPath();
-      ctx.arc(sx, sy, 5.5, 0, 2 * Math.PI);
-      ctx.fillStyle = pt.label === 0 ? '#00F5D4' : '#FF2A85';
-      ctx.shadowColor = pt.label === 0 ? 'rgba(0, 245, 212, 0.9)' : 'rgba(255, 42, 133, 0.9)';
-      ctx.shadowBlur = 10;
-      ctx.fill();
-      ctx.shadowBlur = 0;
+      // Selection Reticle
+      if (isSelected) {
+        ctx.beginPath();
+        ctx.arc(sx, sy, 14, 0, 2 * Math.PI);
+        ctx.strokeStyle = '#F7C76B';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([3, 3]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
 
-      // Crisp White Core Dot
-      ctx.beginPath();
-      ctx.arc(sx, sy, 2, 0, 2 * Math.PI);
-      ctx.fillStyle = '#FFFFFF';
-      ctx.fill();
+      if (pt.label === 0) {
+        // Class 0: Cyan Circle
+        ctx.beginPath();
+        ctx.arc(sx, sy, 5.5, 0, 2 * Math.PI);
+        ctx.fillStyle = '#53D4F4';
+        ctx.fill();
+        ctx.strokeStyle = '#F4F7FB';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      } else {
+        // Class 1: Pink Diamond
+        ctx.beginPath();
+        ctx.moveTo(sx, sy - 6.5);
+        ctx.lineTo(sx + 6.5, sy);
+        ctx.lineTo(sx, sy + 6.5);
+        ctx.lineTo(sx - 6.5, sy);
+        ctx.closePath();
+        ctx.fillStyle = '#F078C5';
+        ctx.fill();
+        ctx.strokeStyle = '#F4F7FB';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
     }
 
     // 9. Coordinate Crosshair at Origin
     const [scx, scy] = toScreen(0, 0);
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+    ctx.strokeStyle = '#29374B';
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(scx - 8, scy);
-    ctx.lineTo(scx + 8, scy);
-    ctx.moveTo(scx, scy - 8);
-    ctx.lineTo(scx, scy + 8);
+    ctx.moveTo(scx - 6, scy);
+    ctx.lineTo(scx + 6, scy);
+    ctx.moveTo(scx, scy - 6);
+    ctx.lineTo(scx, scy + 6);
     ctx.stroke();
-  }, [weights, dataset, tau, tauSVD, warperMode, showHeatmap, mapPoint]);
+  }, [weights, dataset, tau, tauSVD, warperMode, showHeatmap, selectedPoint, mapPoint]);
 
-  // Click on canvas to add a point
+  // Click on canvas: Select Point or Add Point
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     const container = containerRef.current;
@@ -482,14 +494,33 @@ export const ManifoldWarper2D: React.FC<ManifoldWarper2DProps> = ({
     const minDim = Math.min(rect.width, rect.height);
     const scale = minDim / (domain * 2.1);
 
+    // Check if clicked near an existing data point (within 14px)
+    for (const pt of dataset) {
+      const [mx, my] = mapPoint(pt.x, pt.y);
+      const px = cx + mx * scale;
+      const py = cy - my * scale;
+      const dist = Math.hypot(sx - px, sy - py);
+      if (dist <= 14) {
+        if (onSelectPoint) {
+          onSelectPoint(pt);
+        }
+        return;
+      }
+    }
+
+    // Otherwise, add new point and select it
     const x = (sx - cx) / scale;
     const y = (cy - sy) / scale;
-
-    onAddPoint({
+    const newPt: Point2D = {
       x: Math.round(x * 100) / 100,
       y: Math.round(y * 100) / 100,
       label: activeClass,
-    });
+    };
+
+    onAddPoint(newPt);
+    if (onSelectPoint) {
+      onSelectPoint(newPt);
+    }
   };
 
   // Hover coordinate tracker
@@ -513,7 +544,7 @@ export const ManifoldWarper2D: React.FC<ManifoldWarper2DProps> = ({
   return (
     <div
       ref={containerRef}
-      className={`relative w-full h-full overflow-hidden bg-[#05070B] ${className}`}
+      className={`relative w-full h-full overflow-hidden bg-[#0B1020] ${className}`}
     >
       <canvas
         ref={canvasRef}
@@ -523,14 +554,44 @@ export const ManifoldWarper2D: React.FC<ManifoldWarper2DProps> = ({
         className="w-full h-full block cursor-crosshair"
       />
 
-      {/* Coordinate Telemetry HUD (Bottom Left) */}
-      {hoverCoord && (
-        <div className="absolute bottom-6 left-6 pointer-events-none z-10 glass-pill px-3 py-1 rounded-full text-[10px] font-mono text-slate-300">
-          <span>x: <strong className="text-cyber-cyan tabular-nums">{hoverCoord.x.toFixed(2)}</strong></span>
-          <span className="mx-2 text-slate-600">|</span>
-          <span>y: <strong className="text-cyber-amber tabular-nums">{hoverCoord.y.toFixed(2)}</strong></span>
-        </div>
-      )}
+      {/* Always-Visible On-Canvas Legend Badge */}
+      <div className="absolute top-16 left-6 pointer-events-none z-10 glass-pill px-3 py-1.5 rounded-lg text-[10px] font-mono text-[#9DAFC3] flex items-center gap-3">
+        <span className="flex items-center gap-1.5">
+          <span className="text-[#53D4F4]">●</span>
+          <span>Class 0</span>
+        </span>
+        <span className="text-[#29374B]">|</span>
+        <span className="flex items-center gap-1.5">
+          <span className="text-[#F078C5]">◆</span>
+          <span>Class 1</span>
+        </span>
+        {warperMode === 'homotopy' && tau >= 1.5 && (
+          <>
+            <span className="text-[#29374B]">|</span>
+            <span className="flex items-center gap-1 text-[#F4F7FB]">
+              <span className="w-2.5 h-0.5 bg-[#F4F7FB] inline-block" />
+              <span>Hyperplane</span>
+            </span>
+          </>
+        )}
+      </div>
+
+      {/* Coordinate & Selection Telemetry HUD (Bottom Left) */}
+      <div className="absolute bottom-6 left-6 pointer-events-none z-10 flex items-center gap-2">
+        {hoverCoord && (
+          <div className="glass-pill px-3 py-1 rounded-full text-[10px] font-mono text-[#9DAFC3]">
+            <span>x: <strong className="text-[#53D4F4] tabular-nums">{hoverCoord.x.toFixed(2)}</strong></span>
+            <span className="mx-2 text-[#29374B]">|</span>
+            <span>y: <strong className="text-[#F7C76B] tabular-nums">{hoverCoord.y.toFixed(2)}</strong></span>
+          </div>
+        )}
+
+        {selectedPoint && (
+          <div className="glass-pill px-3 py-1 rounded-full text-[10px] font-mono text-[#F7C76B] border border-[#F7C76B]/40">
+            <span>Selected Point: ({selectedPoint.x.toFixed(2)}, {selectedPoint.y.toFixed(2)}) — C{selectedPoint.label}</span>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

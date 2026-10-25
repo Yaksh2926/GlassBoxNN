@@ -8,8 +8,8 @@
 
 body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  background-color: #05070B;
-  color: #F8FAFC;
+  background-color: #0B1020;
+  color: #F4F7FB;
   overflow: hidden;
   user-select: none;
   -webkit-font-smoothing: antialiased;
@@ -23,7 +23,7 @@ body {
 
 .katex {
   font-size: 1em;
-  color: #E2E8F0;
+  color: #F4F7FB;
   text-rendering: geometricPrecision;
 }
 
@@ -31,58 +31,58 @@ body {
   margin: 0.25em 0 !important;
 }
 
-/* Custom Scrollbars for floating docks */
+/* Custom Scrollbars for observatory panels */
 ::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
+  width: 5px;
+  height: 5px;
 }
 ::-webkit-scrollbar-track {
-  background: transparent;
+  background: #0B1020;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.12);
+  background: #29374B;
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 245, 212, 0.4);
+  background: #53D4F4;
 }
 
-/* Full-bleed Spatial Radial Vignette Overlay */
+/* Observatory Spatial Radial Vignette Overlay */
 .spatial-vignette {
   background: radial-gradient(
     circle at 50% 50%,
-    transparent 45%,
-    rgba(5, 7, 11, 0.6) 80%,
-    rgba(5, 7, 11, 0.95) 100%
+    transparent 50%,
+    rgba(11, 16, 32, 0.5) 80%,
+    rgba(11, 16, 32, 0.95) 100%
   );
   pointer-events: none;
 }
 
-/* Hardware-grade Glass HUD Docks (Linear / Teenage Engineering aesthetic) */
+/* Scientific Instrument Panels (Mathematical Observatory aesthetic) */
 .glass-hud {
-  background: rgba(10, 13, 20, 0.82);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  background: rgba(17, 26, 42, 0.92);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid #29374B;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.65);
 }
 
 .glass-pill {
-  background: rgba(10, 13, 20, 0.75);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  background: rgba(17, 26, 42, 0.88);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid #29374B;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
 }
 
 .glass-card-subtle {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: #182438;
+  border: 1px solid #29374B;
 }
 
 .glass-card-subtle:hover {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(255, 255, 255, 0.12);
+  background: #20304A;
+  border-color: rgba(83, 212, 244, 0.4);
 }
 
 /* Blender-style Drag-to-Scrub Number Cursor */

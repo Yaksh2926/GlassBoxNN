@@ -1,169 +1,196 @@
 import React from 'react';
-import { StoryStep, STORY_STEPS } from '../story/StoryModeBar';
 import {
-  Sparkles,
+  Compass,
   Layers,
   Box,
   GitBranch,
-  HelpCircle,
   RotateCcw,
   BookOpen,
   GraduationCap,
-  ShieldCheck,
-  LayoutGrid,
+  Sparkles,
+  Play,
+  PanelLeftClose,
+  PanelLeftOpen,
+  PanelRightClose,
+  PanelRightOpen,
+  Home,
 } from 'lucide-react';
+import { DatasetPreset } from '../../math/datasets';
 
-export type ViewMode = 'split' | 'manifold' | 'loss' | 'graph';
+export type ViewMode = 'geometry' | 'loss' | 'graph';
 
 interface TopCommandBarProps {
   viewMode: ViewMode;
   onSelectViewMode: (mode: ViewMode) => void;
-  currentStoryStepId: number;
-  onSelectStoryStep: (step: StoryStep) => void;
+  currentPreset: DatasetPreset;
+  onSelectPreset: (preset: DatasetPreset) => void;
   personaMode: 'beginner' | 'judge';
   onTogglePersonaMode: () => void;
+  onOpenDemo: () => void;
   onOpenGuide: () => void;
   onResetAll: () => void;
+  onGoHome: () => void;
+  isLeftPanelOpen: boolean;
+  onToggleLeftPanel: () => void;
+  isRightPanelOpen: boolean;
+  onToggleRightPanel: () => void;
 }
 
 export const TopCommandBar: React.FC<TopCommandBarProps> = ({
   viewMode,
   onSelectViewMode,
-  currentStoryStepId,
-  onSelectStoryStep,
+  currentPreset,
+  onSelectPreset,
   personaMode,
   onTogglePersonaMode,
+  onOpenDemo,
   onOpenGuide,
   onResetAll,
+  onGoHome,
+  isLeftPanelOpen,
+  onToggleLeftPanel,
+  isRightPanelOpen,
+  onToggleRightPanel,
 }) => {
   return (
-    <header className="fixed top-3 left-1/2 -translate-x-1/2 z-40 max-w-[98vw] flex items-center gap-2 select-none">
-      {/* Centered Main Pill Bar */}
-      <div className="h-12 px-3.5 glass-hud rounded-full flex items-center gap-3 border border-white/[0.08] shadow-[0_20px_60px_rgba(0,0,0,0.75)]">
-        {/* Brand Mark */}
-        <div className="flex items-center gap-2 pl-1 pr-2 border-r border-white/[0.08]">
-          <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-cyber-cyan to-cyber-magenta flex items-center justify-center font-bold text-black font-mono text-xs shadow-cyan-glow">
-            G
+    <header className="fixed top-3 inset-x-3 z-40 flex items-center justify-between select-none pointer-events-none">
+      {/* Left Group: Home / Logo & Left Panel Toggle */}
+      <div className="flex items-center gap-2 pointer-events-auto">
+        <button
+          onClick={onToggleLeftPanel}
+          className={`h-9 px-2.5 rounded-lg border text-xs flex items-center gap-1.5 transition-all glass-pill ${
+            isLeftPanelOpen
+              ? 'border-[#29374B] text-[#9DAFC3] hover:text-[#F4F7FB]'
+              : 'border-[#53D4F4]/50 text-[#53D4F4] bg-[#182438]'
+          }`}
+          title={isLeftPanelOpen ? 'Collapse Left Control Panel' : 'Expand Left Control Panel'}
+        >
+          {isLeftPanelOpen ? (
+            <PanelLeftClose className="w-4 h-4" />
+          ) : (
+            <PanelLeftOpen className="w-4 h-4" />
+          )}
+          <span className="hidden md:inline font-mono text-[11px]">Controls</span>
+        </button>
+
+        <button
+          onClick={onGoHome}
+          className="h-9 px-3 rounded-lg border border-[#29374B] glass-pill flex items-center gap-2 hover:border-[#53D4F4]/50 transition-colors"
+          title="Return to Overview / Landing Page"
+        >
+          <div className="w-5 h-5 rounded bg-[#182438] border border-[#29374B] flex items-center justify-center text-[#53D4F4]">
+            <Compass className="w-3.5 h-3.5" />
           </div>
-          <div className="flex flex-col">
-            <span className="font-mono font-bold tracking-widest text-xs text-white leading-none">
-              GLASSBOX<span className="text-cyber-cyan font-normal">//NN</span>
-            </span>
-            <span className="text-[7.5px] font-mono text-slate-400 tracking-wider">
-              MATHX WORKSTATION
-            </span>
-          </div>
-        </div>
+          <span className="font-semibold text-xs text-[#F4F7FB] tracking-tight">
+            GlassBox <span className="text-[#53D4F4] font-normal">NN</span>
+          </span>
+        </button>
+      </div>
 
-        {/* View Mode Switcher with sliding pill */}
-        <div className="flex items-center bg-black/50 p-1 rounded-full border border-white/[0.06] text-xs font-mono">
-          <button
-            onClick={() => onSelectViewMode('split')}
-            className={`px-2.5 py-1 rounded-full transition-all flex items-center gap-1.5 ${
-              viewMode === 'split'
-                ? 'bg-cyber-cyan text-black font-bold shadow-cyan-glow'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <LayoutGrid className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Split Studio</span>
-          </button>
+      {/* Center Group: Primary 3-Mode Switcher */}
+      <div className="pointer-events-auto h-10 px-1.5 rounded-xl border border-[#29374B] bg-[#111A2A]/90 backdrop-blur-md flex items-center gap-1 shadow-md">
+        <button
+          onClick={() => onSelectViewMode('geometry')}
+          className={`h-7 px-3 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all ${
+            viewMode === 'geometry'
+              ? 'bg-[#53D4F4] text-[#0B1020] font-semibold shadow-sm'
+              : 'text-[#9DAFC3] hover:text-[#F4F7FB] hover:bg-[#182438]'
+          }`}
+        >
+          <Layers className="w-3.5 h-3.5" />
+          <span>Geometry</span>
+        </button>
 
-          <button
-            onClick={() => onSelectViewMode('manifold')}
-            className={`px-2.5 py-1 rounded-full transition-all flex items-center gap-1.5 ${
-              viewMode === 'manifold'
-                ? 'bg-cyber-cyan text-black font-bold shadow-cyan-glow'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <Layers className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">2D Manifold</span>
-          </button>
+        <button
+          onClick={() => onSelectViewMode('loss')}
+          className={`h-7 px-3 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all ${
+            viewMode === 'loss'
+              ? 'bg-[#F078C5] text-[#0B1020] font-semibold shadow-sm'
+              : 'text-[#9DAFC3] hover:text-[#F4F7FB] hover:bg-[#182438]'
+          }`}
+        >
+          <Box className="w-3.5 h-3.5" />
+          <span>Loss Landscape</span>
+        </button>
 
-          <button
-            onClick={() => onSelectViewMode('loss')}
-            className={`px-2.5 py-1 rounded-full transition-all flex items-center gap-1.5 ${
-              viewMode === 'loss'
-                ? 'bg-cyber-magenta text-white font-bold shadow-magenta-glow'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <Box className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">3D Loss Arena</span>
-          </button>
+        <button
+          onClick={() => onSelectViewMode('graph')}
+          className={`h-7 px-3 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all ${
+            viewMode === 'graph'
+              ? 'bg-[#8B5CF6] text-[#F4F7FB] font-semibold shadow-sm'
+              : 'text-[#9DAFC3] hover:text-[#F4F7FB] hover:bg-[#182438]'
+          }`}
+        >
+          <GitBranch className="w-3.5 h-3.5" />
+          <span>Gradient Flow</span>
+        </button>
+      </div>
 
-          <button
-            onClick={() => onSelectViewMode('graph')}
-            className={`px-2.5 py-1 rounded-full transition-all flex items-center gap-1.5 ${
-              viewMode === 'graph'
-                ? 'bg-cyber-violet text-white font-bold shadow-violet-glow'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <GitBranch className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Backprop Graph</span>
-          </button>
-        </div>
+      {/* Right Group: Demo Mode, Persona, Guide, Reset, Right Panel Toggle */}
+      <div className="flex items-center gap-2 pointer-events-auto">
+        {/* Prominent Demo Mode Action */}
+        <button
+          onClick={onOpenDemo}
+          className="h-9 px-3 rounded-lg bg-[#53D4F4] text-[#0B1020] hover:bg-[#68ddfc] font-semibold text-xs flex items-center gap-1.5 shadow-sm transition-all active:scale-95"
+          title="Launch Guided 6-Step Pitch Demo"
+        >
+          <Play className="w-3 h-3 fill-current" />
+          <span>Demo Mode</span>
+        </button>
 
-        {/* 5-Step Guided Pitch Tour Steppers */}
-        <div className="hidden xl:flex items-center gap-1 px-2 border-l border-r border-white/[0.08]">
-          <span className="text-[9px] font-mono text-slate-400 uppercase mr-1">Pitch Tour:</span>
-          {STORY_STEPS.map(step => {
-            const isActive = currentStoryStepId === step.id;
-            return (
-              <button
-                key={step.id}
-                onClick={() => onSelectStoryStep(step)}
-                title={`${step.id < 10 ? '0' + step.id : step.id} ${step.title}: ${step.subtitle}`}
-                className={`px-2 py-1 rounded-lg text-[10px] font-mono transition-all flex items-center gap-1 border ${
-                  isActive
-                    ? 'bg-white/15 text-white border-cyber-cyan/80 font-bold shadow-sm'
-                    : 'bg-black/30 text-slate-400 border-white/[0.05] hover:border-white/20 hover:text-slate-200'
-                }`}
-              >
-                <span>{step.id < 10 ? `0${step.id}` : step.id}</span>
-                <span className="hidden 2xl:inline">{step.title}</span>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Intuition vs Formal Math Rigor Mode Toggle Switch */}
+        {/* Explore Mode vs Judge Mode Toggle */}
         <button
           onClick={onTogglePersonaMode}
-          title="Toggle Intuitive vs Rigorous Mathematical Perspective"
-          className="px-2.5 py-1 rounded-full bg-black/40 hover:bg-black/60 border border-white/[0.08] flex items-center gap-1.5 text-[11px] font-mono text-slate-300 transition-colors"
+          className="h-9 px-2.5 rounded-lg border border-[#29374B] bg-[#111A2A] hover:bg-[#182438] text-xs font-mono flex items-center gap-1.5 text-[#9DAFC3] transition-colors"
+          title="Toggle between Explore Mode (Everyday Intuition) and Judge Mode (Formal Mathematics)"
         >
           {personaMode === 'judge' ? (
             <>
-              <GraduationCap className="w-3.5 h-3.5 text-cyber-violet" />
-              <span className="font-bold text-cyber-violet">Math Rigor</span>
+              <GraduationCap className="w-3.5 h-3.5 text-[#53D4F4]" />
+              <span className="text-[#53D4F4] font-medium hidden sm:inline">Judge Mode</span>
             </>
           ) : (
             <>
-              <Sparkles className="w-3.5 h-3.5 text-cyber-cyan" />
-              <span className="font-medium text-slate-200">Intuition</span>
+              <Sparkles className="w-3.5 h-3.5 text-[#F7C76B]" />
+              <span className="text-[#F4F7FB] font-medium hidden sm:inline">Explore Mode</span>
             </>
           )}
         </button>
 
-        {/* Guide Modal Trigger */}
+        {/* Handbook Modal */}
         <button
           onClick={onOpenGuide}
-          title="Open Theoretical Mathematical Guide & Handbook"
-          className="p-1.5 rounded-full bg-white/[0.04] hover:bg-white/[0.1] text-slate-300 hover:text-white border border-white/[0.08] transition-colors"
+          className="h-9 w-9 rounded-lg border border-[#29374B] bg-[#111A2A] hover:bg-[#182438] flex items-center justify-center text-[#9DAFC3] hover:text-[#F4F7FB] transition-colors"
+          title="Open Mathematical Handbook"
         >
           <BookOpen className="w-3.5 h-3.5" />
         </button>
 
-        {/* Reset All */}
+        {/* Reset Action */}
         <button
           onClick={onResetAll}
-          title="Reset Everything to Defaults"
-          className="p-1.5 rounded-full bg-white/[0.04] hover:bg-white/[0.1] text-slate-400 hover:text-rose-400 border border-white/[0.08] transition-colors"
+          className="h-9 w-9 rounded-lg border border-[#29374B] bg-[#111A2A] hover:bg-[#182438] flex items-center justify-center text-[#9DAFC3] hover:text-[#EF4444] transition-colors"
+          title="Reset Network & Dataset to Defaults"
         >
           <RotateCcw className="w-3.5 h-3.5" />
+        </button>
+
+        {/* Right Inspector Toggle */}
+        <button
+          onClick={onToggleRightPanel}
+          className={`h-9 px-2.5 rounded-lg border text-xs flex items-center gap-1.5 transition-all glass-pill ${
+            isRightPanelOpen
+              ? 'border-[#29374B] text-[#9DAFC3] hover:text-[#F4F7FB]'
+              : 'border-[#53D4F4]/50 text-[#53D4F4] bg-[#182438]'
+          }`}
+          title={isRightPanelOpen ? 'Collapse Inspector' : 'Expand Inspector'}
+        >
+          <span className="hidden md:inline font-mono text-[11px]">Inspector</span>
+          {isRightPanelOpen ? (
+            <PanelRightClose className="w-4 h-4" />
+          ) : (
+            <PanelRightOpen className="w-4 h-4" />
+          )}
         </button>
       </div>
     </header>

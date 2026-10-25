@@ -18,32 +18,47 @@ import { BackpropGraph } from './components/graph/BackpropGraph';
 import { MathGuideModal } from './components/common/MathGuideModal';
 import { SingularProofModal } from './components/common/SingularProofModal';
 import { TheoremToastHUD, TheoremToast } from './components/common/TheoremToastHUD';
-import { STORY_STEPS, StoryStep } from './components/story/StoryModeBar';
+import { WhatJustHappenedPanel, OperationContextType } from './components/common/WhatJustHappenedPanel';
+import { DemoModeModal, DEMO_STEPS, DemoStep } from './components/story/DemoModeModal';
+import { LandingPage } from './components/landing/LandingPage';
 import { LinearAlgebra } from './math/linearAlgebra';
+import { NeuralEngine } from './math/neuralEngine';
 import { Maximize2, X, Sparkles, GraduationCap } from 'lucide-react';
 
 export function App() {
-  // View mode: 'split' | 'manifold' | 'loss' | 'graph'
-  const [viewMode, setViewMode] = useState<ViewMode>('split');
+  // Navigation Screen: 'landing' | 'lab'
+  const [currentScreen, setCurrentScreen] = useState<'landing' | 'lab'>('landing');
 
-  // Dual persona: 'beginner' | 'judge'
+  // View mode: 'geometry' | 'loss' | 'graph'
+  const [viewMode, setViewMode] = useState<ViewMode>('geometry');
+
+  // Dual persona: 'beginner' (Explore Mode) | 'judge' (Judge Mode)
   const [personaMode, setPersonaMode] = useState<'beginner' | 'judge'>('beginner');
-  const [showPersonaRibbon, setShowPersonaRibbon] = useState(false);
 
-  // Modals & Toasts
+  // Contextual "What Just Happened?" state
+  const [contextType, setContextType] = useState<OperationContextType>('idle');
+  const [lastChangedParam, setLastChangedParam] = useState<string>('');
+
+  // Modals & Panels
   const [isGuideOpen, setIsGuideOpen] = useState(false);
   const [isSingularProofOpen, setIsSingularProofOpen] = useState(false);
+  const [isDemoOpen, setIsDemoOpen] = useState(false);
+  const [demoStepIndex, setDemoStepIndex] = useState(0);
   const [theoremToast, setTheoremToast] = useState<TheoremToast | null>(null);
 
-  // Story mode pitch tour step ID
-  const [currentStoryStepId, setCurrentStoryStepId] = useState<number>(1);
+  // Panel Collapsible states
+  const [isLeftPanelOpen, setIsLeftPanelOpen] = useState(true);
+  const [isRightPanelOpen, setIsRightPanelOpen] = useState(true);
+
+  // Point Selection state
+  const [selectedPoint, setSelectedPoint] = useState<Point2D | null>(null);
 
   // Dataset state
   const [currentPreset, setCurrentPreset] = useState<DatasetPreset>('xor');
   const [dataset, setDataset] = useState<Point2D[]>(() => Datasets.getPreset('xor'));
   const [activeClass, setActiveClass] = useState<0 | 1>(0);
 
-  // Neural network state
+  // Neural network parameters
   const [weights, setWeights] = useState<NetworkWeights>({
     W1: [[1.2, 0.4], [-0.5, 1.1]],
     b1: [0.0, 0.0],
@@ -61,13 +76,13 @@ export function App() {
     beta2: 0.999,
   });
 
-  // 2D Manifold Warper & SVD continuous homotopy state
+  // Continuous Homotopy and SVD Timeline Parameters
   const [tau, setTau] = useState<number>(0.0);
   const [tauSVD, setTauSVD] = useState<number>(0.0);
   const [warperMode, setWarperMode] = useState<'homotopy' | 'svd'>('homotopy');
   const [showHeatmap, setShowHeatmap] = useState<boolean>(true);
 
-  // Animation frame reference for grid collapse
+  // Animation frame reference for failure mode collapse
   const collapseAnimRef = useRef<number | null>(null);
 
   // Cleanup animation on unmount
@@ -79,21 +94,44 @@ export function App() {
     };
   }, []);
 
-  // Handle Preset selection
+  // Preset Selection
   const handleSelectPreset = (preset: DatasetPreset) => {
     setCurrentPreset(preset);
-    setDataset(Datasets.getPreset(preset));
+    const newPts = Datasets.getPreset(preset);
+    setDataset(newPts);
+    setSelectedPoint(null);
+    setContextType('matrix_change');
+    setLastChangedParam(`Loaded ${preset.toUpperCase()} Dataset`);
   };
 
-  // Dataset point management
+  // Dataset Points
   const handleAddPoint = (pt: Point2D) => {
     setDataset(prev => [...prev, pt]);
+    setSelectedPoint(pt);
+    setContextType('point_selected');
   };
+
   const handleUndoPoint = () => {
     setDataset(prev => prev.slice(0, -1));
+    setSelectedPoint(null);
   };
+
   const handleClearDataset = () => {
     setDataset([]);
+    setSelectedPoint(null);
+  };
+
+  // Matrix weight updates
+  const handleUpdateW1 = (newW1: Matrix2x2) => {
+    setWeights(w => ({ ...w, W1: newW1 }));
+    setContextType('weight_change');
+    setLastChangedParam('Matrix W₁');
+  };
+
+  const handleUpdateB1 = (newB1: Vector2D) => {
+    setWeights(w => ({ ...w, b1: newB1 }));
+    setContextType('weight_change');
+    setLastChangedParam('Bias b₁');
   };
 
   // Reset entire network
@@ -107,41 +145,23 @@ export function App() {
     });
     setTau(0.0);
     setTauSVD(0.0);
+    setSelectedPoint(null);
+    setContextType('idle');
   };
 
-  // Reset everything to factory defaults
+  // Reset Everything to Defaults
   const handleResetAll = () => {
     handleSelectPreset('xor');
     handleResetNetwork();
-    setViewMode('split');
+    setViewMode('geometry');
     setWarperMode('homotopy');
-    setCurrentStoryStepId(1);
     setTheoremToast(null);
-  };
-
-  // Handle Story Tour step selection
-  const handleSelectStoryStep = (step: StoryStep) => {
-    setCurrentStoryStepId(step.id);
-    setCurrentPreset(step.presetDataset);
-    setDataset(Datasets.getPreset(step.presetDataset));
-    setWeights(step.presetWeights);
-    setTau(step.tau);
-
-    // Map step view tab to workstation view mode
-    if (step.viewTab === 'warper') {
-      setViewMode('manifold');
-    } else if (step.viewTab === 'loss') {
-      setViewMode('loss');
-    } else if (step.viewTab === 'graph') {
-      setViewMode('graph');
-    }
-
-    setActiveClass(step.activeClass);
+    setSelectedPoint(null);
+    setContextType('idle');
   };
 
   // Failure Mode 1: Singular Matrix (det(W1) = 0)
   const handleTriggerSingularMatrix = () => {
-    // Set linearly dependent rows (Row 2 = -2/3 * Row 1)
     setWeights(w => ({
       ...w,
       W1: [
@@ -151,11 +171,11 @@ export function App() {
       b1: [0.0, 0.0],
     }));
 
-    setViewMode('manifold');
+    setViewMode('geometry');
     setWarperMode('homotopy');
     setTau(0.0);
+    setContextType('singular_collapse');
 
-    // Show sleek toast HUD
     setTheoremToast({
       type: 'singular',
       title: 'SINGULAR MATRIX RANK COLLAPSE [det(W₁) = 0]',
@@ -167,9 +187,8 @@ export function App() {
       cancelAnimationFrame(collapseAnimRef.current);
     }
 
-    // Smoothly animate tau from 0 to 1.0 over 1600ms
     const startTimestamp = performance.now();
-    const duration = 1600;
+    const duration = 1500;
 
     const animateCollapse = (now: number) => {
       const elapsed = now - startTimestamp;
@@ -204,6 +223,7 @@ export function App() {
     }));
 
     setViewMode('graph');
+    setContextType('dead_relu');
     setTheoremToast({
       type: 'dead_relu',
       title: 'DEAD RELU EXTINCTION [∇_W L = 0]',
@@ -212,94 +232,96 @@ export function App() {
     });
   };
 
+  // Apply Demo Step
+  const handleApplyDemoStep = (step: DemoStep) => {
+    setCurrentPreset(step.preset);
+    setDataset(Datasets.getPreset(step.preset));
+    setWeights(step.weights);
+    setTau(step.tau);
+    setViewMode(step.viewMode);
+    setSelectedPoint(null);
+    setContextType(
+      step.viewMode === 'loss'
+        ? 'view_loss'
+        : step.viewMode === 'graph'
+        ? 'view_graph'
+        : step.id === 3
+        ? 'singular_collapse'
+        : step.id === 4
+        ? 'activation_change'
+        : 'homotopy_scrub'
+    );
+  };
+
   const det = LinearAlgebra.det(weights.W1);
   const isSingularActive = Math.abs(det) < 0.02;
   const isDeadReLUActive =
     weights.activation === 'relu' && weights.b1[0] < -2 && weights.b1[1] < -2;
 
-  // Persona text helper
-  const getPersonaText = () => {
-    if (isSingularActive) {
-      return personaMode === 'beginner'
-        ? 'Paper squashed to wire: All blue and pink dots are crushed onto one single line!'
-        : 'Rank deficiency: dim(ker(W₁)) ≥ 1 annihilates invertible topological information.';
-    }
-    if (tau <= 1.0) {
-      return personaMode === 'beginner'
-        ? 'Stretching and turning a rubber sheet. Straight lines stay completely straight.'
-        : 'Affine homotopy: H(x, τ) = (1 - τ)I x + τ(W₁x + b₁), preserving parallelism.';
-    } else if (tau <= 2.0) {
-      return personaMode === 'beginner'
-        ? `Folding space with ${weights.activation.toUpperCase()}: creasing flat so classes can be separated!`
-        : `Cover's Theorem: Non-linearly embedding into feature space separates complex manifolds.`;
-    } else {
-      return personaMode === 'beginner'
-        ? 'Drawing one straight scissor cut across the folded canvas!'
-        : 'Linear hyperplane separation w₂ᵀ a₁ + b₂ = 0 in transformed feature space.';
-    }
-  };
+  // Live Metrics
+  const currentLoss = dataset.length > 0 ? NeuralEngine.computeLoss(dataset, weights) : 0;
+  const currentAcc = dataset.length > 0 ? NeuralEngine.computeAccuracy(dataset, weights) : 0;
 
+  // IF ON LANDING PAGE: Render refined Landing Page
+  if (currentScreen === 'landing') {
+    return (
+      <>
+        <LandingPage
+          onEnterLab={() => setCurrentScreen('lab')}
+          onExploreMath={() => setIsGuideOpen(true)}
+        />
+        <MathGuideModal isOpen={isGuideOpen} onClose={() => setIsGuideOpen(false)} />
+      </>
+    );
+  }
+
+  // IF IN LAB WORKSPACE: Render Mathematical Observatory
   return (
-    <div className="fixed inset-0 w-screen h-screen overflow-hidden bg-[#05070B] text-slate-100 font-sans selection:bg-cyber-cyan selection:text-black">
+    <div className="fixed inset-0 w-screen h-screen overflow-hidden bg-[#0B1020] text-[#F4F7FB] font-sans selection:bg-[#53D4F4] selection:text-black">
       {/* 1. Spatial Radial Vignette Overlay */}
       <div className="fixed inset-0 spatial-vignette pointer-events-none z-10" />
 
-      {/* 2. Top Floating Command Bar */}
+      {/* 2. Top Command Bar */}
       <TopCommandBar
         viewMode={viewMode}
-        onSelectViewMode={setViewMode}
-        currentStoryStepId={currentStoryStepId}
-        onSelectStoryStep={handleSelectStoryStep}
-        personaMode={personaMode}
-        onTogglePersonaMode={() => {
-          setPersonaMode(p => (p === 'beginner' ? 'judge' : 'beginner'));
-          setShowPersonaRibbon(true);
+        onSelectViewMode={mode => {
+          setViewMode(mode);
+          setContextType(mode === 'loss' ? 'view_loss' : mode === 'graph' ? 'view_graph' : 'homotopy_scrub');
         }}
+        currentPreset={currentPreset}
+        onSelectPreset={handleSelectPreset}
+        personaMode={personaMode}
+        onTogglePersonaMode={() =>
+          setPersonaMode(p => (p === 'beginner' ? 'judge' : 'beginner'))
+        }
+        onOpenDemo={() => setIsDemoOpen(true)}
         onOpenGuide={() => setIsGuideOpen(true)}
         onResetAll={handleResetAll}
+        onGoHome={() => setCurrentScreen('landing')}
+        isLeftPanelOpen={isLeftPanelOpen}
+        onToggleLeftPanel={() => setIsLeftPanelOpen(!isLeftPanelOpen)}
+        isRightPanelOpen={isRightPanelOpen}
+        onToggleRightPanel={() => setIsRightPanelOpen(!isRightPanelOpen)}
       />
 
-      {/* 3. Intuition / Rigor Floating Capsule (Below Command Bar) */}
-      {showPersonaRibbon && (
-        <div className="fixed top-18 left-1/2 -translate-x-1/2 z-30 max-w-xl w-[92vw] glass-pill px-4 py-2 rounded-2xl flex items-center justify-between gap-3 text-xs border border-white/[0.08] animate-in fade-in slide-in-from-top-2 duration-200">
-          <div className="flex items-center gap-2">
-            {personaMode === 'judge' ? (
-              <GraduationCap className="w-4 h-4 text-cyber-violet shrink-0" />
-            ) : (
-              <Sparkles className="w-4 h-4 text-cyber-cyan shrink-0" />
-            )}
-            <span className="text-[11px] font-mono text-slate-200">
-              <strong className={personaMode === 'judge' ? 'text-cyber-violet' : 'text-cyber-cyan'}>
-                {personaMode === 'judge' ? 'MATH RIGOR: ' : 'INTUITION: '}
-              </strong>
-              {getPersonaText()}
-            </span>
-          </div>
-          <button
-            onClick={() => setShowPersonaRibbon(false)}
-            className="text-slate-400 hover:text-white p-0.5"
-          >
-            <X className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      )}
-
-      {/* 4. Sliding Theorem Toast HUD */}
+      {/* 3. Sliding Theorem Toast HUD */}
       <TheoremToastHUD
         toast={theoremToast}
         onClose={() => setTheoremToast(null)}
         onOpenProofModal={() => setIsSingularProofOpen(true)}
       />
 
-      {/* 5. Central Spatial Viewport */}
-      {/* View Mode: 2D Manifold OR Split Studio Primary Canvas */}
-      {(viewMode === 'manifold' || viewMode === 'split') && (
+      {/* 4. Central Mathematical Canvas Viewport */}
+      {viewMode === 'geometry' && (
         <div className="fixed inset-0 w-screen h-screen">
           <ManifoldWarper2D
             weights={weights}
             dataset={dataset}
             tau={tau}
-            onChangeTau={setTau}
+            onChangeTau={updater => {
+              setTau(updater);
+              setContextType('homotopy_scrub');
+            }}
             tauSVD={tauSVD}
             onChangeTauSVD={setTauSVD}
             warperMode={warperMode}
@@ -307,12 +329,17 @@ export function App() {
             onAddPoint={handleAddPoint}
             activeClass={activeClass}
             showHeatmap={showHeatmap}
+            selectedPoint={selectedPoint}
+            onSelectPoint={pt => {
+              setSelectedPoint(pt);
+              setContextType(pt ? 'point_selected' : 'idle');
+            }}
             className="w-full h-full"
           />
         </div>
       )}
 
-      {/* View Mode: 3D Loss Arena (Full Screen) */}
+      {/* View Mode: 3D Loss Landscape & Contour Arena */}
       {viewMode === 'loss' && (
         <div className="fixed inset-0 w-screen h-screen pt-16 pb-20 px-6 z-20 flex items-center justify-center">
           <LossLandscapeView
@@ -326,13 +353,14 @@ export function App() {
                   [w.W1[1][0], p2],
                 ],
               }));
+              setContextType('weight_change');
             }}
             className="w-full max-w-6xl h-full max-h-[84vh]"
           />
         </div>
       )}
 
-      {/* View Mode: Backprop Graph (Full Screen) */}
+      {/* View Mode: Backprop Graph (Silicon Autodiff Flow) */}
       {viewMode === 'graph' && (
         <div className="fixed inset-0 w-screen h-screen pt-16 pb-20 px-6 z-20 flex items-center justify-center">
           <BackpropGraph
@@ -343,57 +371,26 @@ export function App() {
         </div>
       )}
 
-      {/* Split Studio Picture-in-Picture Floating Windows */}
-      {viewMode === 'split' && (
-        <>
-          {/* Floating PiP: 3D Loss Arena & Optimizer Race */}
-          <div className="hidden lg:flex fixed top-20 right-96 z-20 w-[410px] h-[330px] glass-hud rounded-2xl overflow-hidden border border-white/[0.08] shadow-[0_20px_50px_rgba(0,0,0,0.8)] flex-col animate-in fade-in zoom-in-95 duration-200">
-            <div className="px-3 py-1.5 border-b border-white/[0.06] flex items-center justify-between bg-black/40 text-[10px] font-mono">
-              <span className="text-cyber-magenta font-bold">PIP // 3D LOSS ARENA</span>
-              <button
-                onClick={() => setViewMode('loss')}
-                className="text-slate-400 hover:text-white flex items-center gap-1 transition-colors"
-              >
-                <Maximize2 className="w-3 h-3" /> Expand
-              </button>
-            </div>
-            <div className="flex-1 overflow-hidden">
-              <LossLandscapeView
-                dataset={dataset}
-                weights={weights}
-                onSelectParam={(p1, p2) => {
-                  setWeights(w => ({
-                    ...w,
-                    W1: [
-                      [p1, w.W1[0][1]],
-                      [w.W1[1][0], p2],
-                    ],
-                  }));
-                }}
-                className="w-full h-full border-0 rounded-none bg-transparent"
-              />
-            </div>
-          </div>
-        </>
-      )}
-
-      {/* Interactive Picture-in-Picture Mini Loss Landscape Radar */}
-      {(viewMode === 'manifold' || viewMode === 'split') && (
+      {/* Interactive Picture-in-Picture Mini Loss Landscape Radar (Visible in Geometry Mode) */}
+      {viewMode === 'geometry' && (
         <MiniLossRadar
           dataset={dataset}
           weights={weights}
-          onUpdateWeights={setWeights}
+          onUpdateWeights={newW => {
+            setWeights(newW);
+            setContextType('weight_change');
+          }}
           onExpand={() => setViewMode('loss')}
-          className="fixed bottom-24 right-4 lg:right-[366px] z-30"
+          className="fixed bottom-24 right-4 lg:right-[300px] z-30"
         />
       )}
 
-      {/* 6. Left Floating Dock: Tactile Matrix & Dataset Studio */}
+      {/* 5. Left Floating Dock: Tactile Matrix & Dataset Studio */}
       <LeftTactileStudio
         W1={weights.W1}
         b1={weights.b1}
-        onChangeW1={newW1 => setWeights(w => ({ ...w, W1: newW1 }))}
-        onChangeB1={newB1 => setWeights(w => ({ ...w, b1: newB1 }))}
+        onChangeW1={handleUpdateW1}
+        onChangeB1={handleUpdateB1}
         currentPreset={currentPreset}
         onSelectPreset={handleSelectPreset}
         dataset={dataset}
@@ -402,7 +399,10 @@ export function App() {
         onUndoPoint={handleUndoPoint}
         onClearDataset={handleClearDataset}
         weights={weights}
-        onUpdateWeights={setWeights}
+        onUpdateWeights={newW => {
+          setWeights(newW);
+          setContextType('training_step');
+        }}
         optConfig={optConfig}
         onChangeOptConfig={setOptConfig}
         onTriggerSingularMatrix={handleTriggerSingularMatrix}
@@ -410,28 +410,64 @@ export function App() {
         onOpenSingularProof={() => setIsSingularProofOpen(true)}
         isSingularActive={isSingularActive}
         isDeadReLUActive={isDeadReLUActive}
+        isCollapsed={!isLeftPanelOpen}
+        onToggleCollapse={() => setIsLeftPanelOpen(!isLeftPanelOpen)}
       />
 
-      {/* 7. Right Floating Dock: Visual Spectral & SVD Inspector */}
+      {/* 6. Right Floating Dock: Visual Spectral & SVD Inspector */}
       <RightSpectralInspector
         W1={weights.W1}
+        weights={weights}
+        selectedPoint={selectedPoint}
+        onClearSelectedPoint={() => setSelectedPoint(null)}
         tauSVD={tauSVD}
         onChangeTauSVD={setTauSVD}
         warperMode={warperMode}
         onChangeWarperMode={setWarperMode}
+        isCollapsed={!isRightPanelOpen}
+        onToggleCollapse={() => setIsRightPanelOpen(!isRightPanelOpen)}
       />
 
-      {/* 8. Bottom Center Floating Timeline Dock: DaVinci-Style Homotopy Scrubber */}
-      <BottomTimelineDock
-        tau={tau}
-        onChangeTau={setTau}
-        tauSVD={tauSVD}
-        onChangeTauSVD={setTauSVD}
-        warperMode={warperMode}
-        onChangeWarperMode={setWarperMode}
+      {/* 7. Bottom Center: DaVinci-Style Homotopy Scrubber */}
+      {viewMode === 'geometry' && (
+        <BottomTimelineDock
+          tau={tau}
+          onChangeTau={updater => {
+            setTau(updater);
+            setContextType('homotopy_scrub');
+          }}
+          tauSVD={tauSVD}
+          onChangeTauSVD={setTauSVD}
+          warperMode={warperMode}
+          onChangeWarperMode={setWarperMode}
+        />
+      )}
+
+      {/* 8. Signature UX Feature: "What Just Happened?" Contextual Floating Capsule */}
+      <div className="fixed bottom-3 left-1/2 -translate-x-1/2 z-40 max-w-lg w-[90vw]">
+        <WhatJustHappenedPanel
+          contextType={contextType}
+          personaMode={personaMode}
+          weights={weights}
+          tau={tau}
+          selectedPoint={selectedPoint}
+          lastChangedParam={lastChangedParam}
+          lossValue={currentLoss}
+          accuracy={currentAcc}
+        />
+      </div>
+
+      {/* 9. Presentation-Ready Demo Mode Modal */}
+      <DemoModeModal
+        isOpen={isDemoOpen}
+        onClose={() => setIsDemoOpen(false)}
+        currentStepIndex={demoStepIndex}
+        onChangeStep={setDemoStepIndex}
+        onApplyStep={handleApplyDemoStep}
+        personaMode={personaMode}
       />
 
-      {/* 9. Educational Handbooks & Proof Modals */}
+      {/* 10. Educational Handbooks & Proof Modals */}
       <MathGuideModal isOpen={isGuideOpen} onClose={() => setIsGuideOpen(false)} />
       <SingularProofModal
         isOpen={isSingularProofOpen}

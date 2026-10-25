@@ -5,6 +5,7 @@ import {
   NetworkWeights,
   OptimizerConfig,
   Point2D,
+  ActivationType,
 } from '../../math/types';
 import { DatasetPreset, Datasets } from '../../math/datasets';
 import { ScrubbableNumber } from '../common/ScrubbableNumber';
@@ -17,10 +18,11 @@ import {
   RotateCcw,
   Zap,
   Minimize2,
-  AlertOctagon,
-  FileText,
-  Activity,
+  Plus,
+  Undo2,
   Layers,
+  Settings2,
+  Sliders,
 } from 'lucide-react';
 
 interface LeftTactileStudioProps {
@@ -44,6 +46,8 @@ interface LeftTactileStudioProps {
   onOpenSingularProof: () => void;
   isSingularActive: boolean;
   isDeadReLUActive: boolean;
+  isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
 export const LeftTactileStudio: React.FC<LeftTactileStudioProps> = ({
@@ -67,11 +71,15 @@ export const LeftTactileStudio: React.FC<LeftTactileStudioProps> = ({
   onOpenSingularProof,
   isSingularActive,
   isDeadReLUActive,
+  isCollapsed = false,
+  onToggleCollapse,
 }) => {
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [internalCollapsed, setInternalCollapsed] = useState(false);
   const [isTraining, setIsTraining] = useState(false);
   const [epoch, setEpoch] = useState(0);
   const optStateRef = React.useRef<OptimizerState>(createInitialOptimizerState());
+
+  const collapsed = isCollapsed || internalCollapsed;
 
   // Compute live forward metrics
   const currentLoss = dataset.length > 0 ? NeuralEngine.computeLoss(dataset, weights) : 0;
@@ -127,7 +135,6 @@ export const LeftTactileStudio: React.FC<LeftTactileStudioProps> = ({
     });
   };
 
-  // Matrix cell update helpers
   const updateW1 = (row: 0 | 1, col: 0 | 1, val: number) => {
     const updated: Matrix2x2 = [
       [W1[0][0], W1[0][1]],
@@ -145,422 +152,333 @@ export const LeftTactileStudio: React.FC<LeftTactileStudioProps> = ({
 
   return (
     <aside
-      className={`fixed left-4 top-20 bottom-24 z-30 flex transition-all duration-300 ease-out select-none ${
-        isCollapsed ? '-translate-x-[calc(100%-16px)]' : 'translate-x-0'
+      className={`fixed left-3 top-16 bottom-20 z-30 flex transition-all duration-300 ease-out select-none ${
+        collapsed ? '-translate-x-[calc(100%-12px)]' : 'translate-x-0'
       }`}
     >
-      <div className="w-80 h-full flex flex-col glass-hud rounded-2xl overflow-hidden border border-white/[0.08] shadow-[0_20px_60px_rgba(0,0,0,0.75)]">
-        {/* Dock Header */}
-        <div className="px-4 py-3 border-b border-white/[0.06] flex items-center justify-between bg-white/[0.02]">
+      <div className="w-[260px] h-full flex flex-col rounded-xl overflow-hidden border border-[#29374B] bg-[#111A2A]/95 backdrop-blur-md shadow-xl text-[#F4F7FB]">
+        {/* Panel Header */}
+        <div className="px-3.5 py-2.5 border-b border-[#29374B] flex items-center justify-between bg-[#0B1020]/60">
           <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-cyber-cyan shadow-cyan-glow" />
-            <span className="text-[11px] font-mono font-bold tracking-widest text-white uppercase">
-              01 // OPERATOR & DATASET
+            <Sliders className="w-3.5 h-3.5 text-[#53D4F4]" />
+            <span className="text-xs font-semibold tracking-wide text-[#F4F7FB]">
+              LAB CONTROLS
             </span>
           </div>
-          <span className="text-[9px] font-mono text-slate-400">TACTILE STUDIO</span>
+          <span className="text-[10px] font-mono text-[#9DAFC3]">
+            {dataset.length} pts
+          </span>
         </div>
 
-        {/* Scrollable controls container */}
-        <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4">
-          {/* SECTION 1: INTERACTIVE SCRUBBABLE MATRIX BRACKETS */}
+        {/* Scrollable Container */}
+        <div className="flex-1 overflow-y-auto px-3.5 py-3 space-y-4">
+          {/* SECTION A: DATASET */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-mono tracking-wider uppercase text-slate-300 font-semibold">
-                AFFINE MAP [ W₁x + b₁ ]
+              <span className="text-[10px] font-mono uppercase tracking-wider text-[#9DAFC3] font-semibold">
+                A. Dataset
               </span>
-              <span className="text-[9px] font-mono text-slate-500">Drag to scrub</span>
-            </div>
-
-            {/* Matrix & Bias Layout with tall brackets */}
-            <div className="grid grid-cols-12 gap-1.5 items-center p-2.5 rounded-xl bg-black/40 border border-white/[0.05]">
-              {/* W1 Matrix with tall square brackets */}
-              <div className="col-span-8 relative py-0.5 px-2">
-                {/* Left bracket line */}
-                <div className="absolute left-0 top-0 bottom-0 w-1.5 border-l-2 border-t-2 border-b-2 border-cyber-cyan/70 rounded-l-sm pointer-events-none" />
-                {/* Right bracket line */}
-                <div className="absolute right-0 top-0 bottom-0 w-1.5 border-r-2 border-t-2 border-b-2 border-cyber-cyan/70 rounded-r-sm pointer-events-none" />
-
-                <div className="grid grid-cols-2 gap-1.5">
-                  <ScrubbableNumber
-                    label="w₁₁"
-                    value={W1[0][0]}
-                    onChange={v => updateW1(0, 0, v)}
-                    color="cyan"
-                  />
-                  <ScrubbableNumber
-                    label="w₁₂"
-                    value={W1[0][1]}
-                    onChange={v => updateW1(0, 1, v)}
-                    color="cyan"
-                  />
-                  <ScrubbableNumber
-                    label="w₂₁"
-                    value={W1[1][0]}
-                    onChange={v => updateW1(1, 0, v)}
-                    color="cyan"
-                  />
-                  <ScrubbableNumber
-                    label="w₂₂"
-                    value={W1[1][1]}
-                    onChange={v => updateW1(1, 1, v)}
-                    color="cyan"
-                  />
-                </div>
-              </div>
-
-              {/* Plus sign */}
-              <div className="col-span-1 text-center font-mono font-bold text-slate-500 text-xs select-none">
-                +
-              </div>
-
-              {/* Bias Vector b1 with tall square brackets */}
-              <div className="col-span-3 relative py-0.5 px-1.5">
-                <div className="absolute left-0 top-0 bottom-0 w-1 border-l-2 border-t-2 border-b-2 border-cyber-amber/70 rounded-l-sm pointer-events-none" />
-                <div className="absolute right-0 top-0 bottom-0 w-1 border-r-2 border-t-2 border-b-2 border-cyber-amber/70 rounded-r-sm pointer-events-none" />
-
-                <div className="flex flex-col gap-1.5">
-                  <ScrubbableNumber
-                    label="b₁"
-                    value={b1[0]}
-                    onChange={v => updateB1(0, v)}
-                    color="amber"
-                  />
-                  <ScrubbableNumber
-                    label="b₂"
-                    value={b1[1]}
-                    onChange={v => updateB1(1, v)}
-                    color="amber"
-                  />
-                </div>
+              <div className="flex items-center gap-1.5 text-[10px] font-mono">
+                <span className="flex items-center gap-1 text-[#53D4F4]">
+                  <span>●</span> C0
+                </span>
+                <span className="flex items-center gap-1 text-[#F078C5]">
+                  <span>◆</span> C1
+                </span>
               </div>
             </div>
 
-            {/* Transform Preset Micro-Buttons */}
-            <div className="grid grid-cols-5 gap-1 font-mono text-[9px]">
+            {/* Dataset Preset Buttons */}
+            <div className="grid grid-cols-2 gap-1.5 text-xs font-mono">
               <button
-                onClick={() => {
-                  onChangeW1([[1.0, 0.0], [0.0, 1.0]]);
-                  onChangeB1([0.0, 0.0]);
-                }}
-                className="py-1 px-1 rounded bg-white/[0.04] hover:bg-white/[0.08] text-slate-300 border border-white/[0.06] hover:border-cyber-cyan/50 transition-colors text-center"
-                title="Identity (I): No distortion"
+                onClick={() => onSelectPreset('xor')}
+                className={`py-1.5 px-2 rounded-lg border transition-all flex items-center justify-between ${
+                  currentPreset === 'xor'
+                    ? 'bg-[#182438] border-[#53D4F4] text-[#F4F7FB] font-semibold'
+                    : 'bg-[#111A2A] border-[#29374B] text-[#9DAFC3] hover:text-[#F4F7FB]'
+                }`}
               >
-                I
+                <span>XOR</span>
+                <span className="text-[9px] text-[#53D4F4]">Non-linear</span>
               </button>
+
               <button
-                onClick={() => {
-                  const c = Math.cos(Math.PI / 4);
-                  const s = Math.sin(Math.PI / 4);
-                  onChangeW1([[parseFloat(c.toFixed(2)), parseFloat((-s).toFixed(2))], [parseFloat(s.toFixed(2)), parseFloat(c.toFixed(2))]]);
-                }}
-                className="py-1 px-1 rounded bg-white/[0.04] hover:bg-white/[0.08] text-slate-300 border border-white/[0.06] hover:border-cyber-cyan/50 transition-colors text-center"
-                title="45° Rotation"
+                onClick={() => onSelectPreset('circles')}
+                className={`py-1.5 px-2 rounded-lg border transition-all flex items-center justify-between ${
+                  currentPreset === 'circles'
+                    ? 'bg-[#182438] border-[#53D4F4] text-[#F4F7FB] font-semibold'
+                    : 'bg-[#111A2A] border-[#29374B] text-[#9DAFC3] hover:text-[#F4F7FB]'
+                }`}
               >
-                45° Rot
+                <span>Rings</span>
+                <span className="text-[9px] text-[#F078C5]">Radial</span>
               </button>
+
               <button
-                onClick={() => onChangeW1([[1.0, 1.2], [0.0, 1.0]])}
-                className="py-1 px-1 rounded bg-white/[0.04] hover:bg-white/[0.08] text-slate-300 border border-white/[0.06] hover:border-cyber-cyan/50 transition-colors text-center"
-                title="Shear Transformation"
+                onClick={() => onSelectPreset('moons')}
+                className={`py-1.5 px-2 rounded-lg border transition-all flex items-center justify-between ${
+                  currentPreset === 'moons'
+                    ? 'bg-[#182438] border-[#53D4F4] text-[#F4F7FB] font-semibold'
+                    : 'bg-[#111A2A] border-[#29374B] text-[#9DAFC3] hover:text-[#F4F7FB]'
+                }`}
               >
-                Shear
+                <span>Moons</span>
+                <span className="text-[9px] text-[#53D4F4]">Curved</span>
               </button>
+
               <button
-                onClick={() => onChangeW1([[-1.0, 0.0], [0.0, 1.0]])}
-                className="py-1 px-1 rounded bg-white/[0.04] hover:bg-white/[0.08] text-slate-300 border border-white/[0.06] hover:border-cyber-cyan/50 transition-colors text-center"
-                title="Reflection"
+                onClick={() => onSelectPreset('linear')}
+                className={`py-1.5 px-2 rounded-lg border transition-all flex items-center justify-between ${
+                  currentPreset === 'linear'
+                    ? 'bg-[#182438] border-[#53D4F4] text-[#F4F7FB] font-semibold'
+                    : 'bg-[#111A2A] border-[#29374B] text-[#9DAFC3] hover:text-[#F4F7FB]'
+                }`}
               >
-                Reflect
+                <span>Linear</span>
+                <span className="text-[9px] text-[#9DAFC3]">Separable</span>
               </button>
-              <button
-                onClick={() => onChangeW1([[1.4, 0.0], [0.0, 1.4]])}
-                className="py-1 px-1 rounded bg-white/[0.04] hover:bg-white/[0.08] text-slate-300 border border-white/[0.06] hover:border-cyber-cyan/50 transition-colors text-center"
-                title="Uniform Scaling"
-              >
-                Scale
-              </button>
+            </div>
+
+            {/* Click-to-add Class Selector & Undo */}
+            <div className="flex items-center justify-between pt-1 text-[10px] font-mono">
+              <span className="text-[#9DAFC3]">Drop on canvas:</span>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => onSetActiveClass(0)}
+                  className={`px-1.5 py-0.5 rounded border flex items-center gap-1 transition-all ${
+                    activeClass === 0
+                      ? 'border-[#53D4F4] bg-[#53D4F4]/15 text-[#53D4F4] font-bold'
+                      : 'border-[#29374B] text-[#9DAFC3]'
+                  }`}
+                  title="Drop Class 0 (Cyan Circle)"
+                >
+                  <span>●</span> 0
+                </button>
+                <button
+                  onClick={() => onSetActiveClass(1)}
+                  className={`px-1.5 py-0.5 rounded border flex items-center gap-1 transition-all ${
+                    activeClass === 1
+                      ? 'border-[#F078C5] bg-[#F078C5]/15 text-[#F078C5] font-bold'
+                      : 'border-[#29374B] text-[#9DAFC3]'
+                  }`}
+                  title="Drop Class 1 (Pink Diamond)"
+                >
+                  <span>◆</span> 1
+                </button>
+                <button
+                  onClick={onUndoPoint}
+                  className="px-1.5 py-0.5 rounded border border-[#29374B] bg-[#182438] text-[#9DAFC3] hover:text-[#F4F7FB]"
+                  title="Undo last point"
+                >
+                  <Undo2 className="w-2.5 h-2.5" />
+                </button>
+              </div>
             </div>
           </div>
 
-          {/* SECTION 2: 1-CLICK STRESS TEST TRIGGERS (HARDWARE BUTTONS) */}
-          <div className="space-y-1.5 pt-1 border-t border-white/[0.06]">
-            <span className="text-[10px] font-mono tracking-wider uppercase text-slate-300 font-semibold block">
-              STRESS TEST TRIGGERS
-            </span>
+          {/* SECTION B: NETWORK CONFIGURATION */}
+          <div className="space-y-2 pt-2 border-t border-[#29374B]">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-[#9DAFC3] font-semibold">
+                B. Network (2-2-1)
+              </span>
+              <span className="text-[9px] font-mono text-[#53D4F4]">
+                σ: {weights.activation.toUpperCase()}
+              </span>
+            </div>
 
-            <div className="grid grid-cols-2 gap-1.5">
+            {/* Activation Picker */}
+            <div className="grid grid-cols-4 gap-1 text-[10px] font-mono">
+              {(['relu', 'sigmoid', 'tanh', 'leaky_relu'] as ActivationType[]).map(act => (
+                <button
+                  key={act}
+                  onClick={() => onUpdateWeights({ ...weights, activation: act })}
+                  className={`py-1 rounded border transition-all text-center uppercase ${
+                    weights.activation === act
+                      ? 'border-[#53D4F4] bg-[#182438] text-[#53D4F4] font-bold'
+                      : 'border-[#29374B] bg-[#111A2A] text-[#9DAFC3] hover:text-[#F4F7FB]'
+                  }`}
+                >
+                  {act === 'leaky_relu' ? 'LReLU' : act}
+                </button>
+              ))}
+            </div>
+
+            {/* Layer 1 Matrix W1 Brackets */}
+            <div className="p-2 rounded-lg bg-[#0B1020] border border-[#29374B] space-y-1.5">
+              <div className="flex items-center justify-between text-[10px] font-mono text-[#9DAFC3]">
+                <span>Matrix W₁ (Affine Map)</span>
+                <span className="text-[9px] text-[#53D4F4]">Scrubbable</span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-1.5 font-mono text-xs">
+                <ScrubbableNumber
+                  label="w₁₁"
+                  value={W1[0][0]}
+                  onChange={v => updateW1(0, 0, v)}
+                  color="cyan"
+                />
+                <ScrubbableNumber
+                  label="w₁₂"
+                  value={W1[0][1]}
+                  onChange={v => updateW1(0, 1, v)}
+                  color="cyan"
+                />
+                <ScrubbableNumber
+                  label="w₂₁"
+                  value={W1[1][0]}
+                  onChange={v => updateW1(1, 0, v)}
+                  color="cyan"
+                />
+                <ScrubbableNumber
+                  label="w₂₂"
+                  value={W1[1][1]}
+                  onChange={v => updateW1(1, 1, v)}
+                  color="cyan"
+                />
+              </div>
+
+              {/* Biases b1 */}
+              <div className="grid grid-cols-2 gap-1.5 pt-1 border-t border-[#29374B]/50">
+                <ScrubbableNumber
+                  label="b₁"
+                  value={b1[0]}
+                  onChange={v => updateB1(0, v)}
+                  color="amber"
+                />
+                <ScrubbableNumber
+                  label="b₂"
+                  value={b1[1]}
+                  onChange={v => updateB1(1, v)}
+                  color="amber"
+                />
+              </div>
+            </div>
+
+            {/* Failure Mode Quick Injections */}
+            <div className="grid grid-cols-2 gap-1.5 pt-1">
               <button
                 onClick={onTriggerSingularMatrix}
-                className={`p-2 rounded-xl border text-left font-mono transition-all flex flex-col gap-0.5 relative overflow-hidden ${
+                className={`p-1.5 rounded-lg border text-left font-mono transition-all flex flex-col ${
                   isSingularActive
-                    ? 'bg-rose-950/60 border-rose-500 shadow-md shadow-rose-950/60 text-white'
-                    : 'bg-[#121622] border-white/[0.08] hover:border-rose-500/50 text-slate-200'
+                    ? 'border-[#EF4444] bg-[#EF4444]/15 text-[#EF4444] font-bold shadow-sm'
+                    : 'border-[#29374B] bg-[#182438] text-[#9DAFC3] hover:text-[#EF4444]'
                 }`}
+                title="Trigger Singular Matrix det(W1) = 0"
               >
-                <div className="flex items-center gap-1.5">
-                  <Minimize2 className="w-3.5 h-3.5 text-rose-400 shrink-0" />
-                  <span className="text-[10px] font-bold text-rose-300 truncate">
-                    det(W₁) = 0
-                  </span>
-                </div>
-                <span className="text-[8.5px] text-slate-400 font-sans leading-tight">
-                  Singular Grid Collapse
+                <span className="text-[10px] font-bold flex items-center gap-1">
+                  <Minimize2 className="w-2.5 h-2.5" /> det = 0
                 </span>
-                {isSingularActive && (
-                  <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping" />
-                )}
+                <span className="text-[8px] opacity-80">Rank Collapse</span>
               </button>
 
               <button
                 onClick={onTriggerDeadReLU}
-                className={`p-2 rounded-xl border text-left font-mono transition-all flex flex-col gap-0.5 relative overflow-hidden ${
+                className={`p-1.5 rounded-lg border text-left font-mono transition-all flex flex-col ${
                   isDeadReLUActive
-                    ? 'bg-amber-950/60 border-amber-500 shadow-md shadow-amber-950/60 text-white'
-                    : 'bg-[#121622] border-white/[0.08] hover:border-amber-500/50 text-slate-200'
+                    ? 'border-[#F7C76B] bg-[#F7C76B]/15 text-[#F7C76B] font-bold shadow-sm'
+                    : 'border-[#29374B] bg-[#182438] text-[#9DAFC3] hover:text-[#F7C76B]'
                 }`}
+                title="Trigger Dead ReLU extinction"
               >
-                <div className="flex items-center gap-1.5">
-                  <Zap className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                  <span className="text-[10px] font-bold text-amber-300 truncate">
-                    Dead ReLU Trap
-                  </span>
-                </div>
-                <span className="text-[8.5px] text-slate-400 font-sans leading-tight">
-                  Zero Gradient ∇=0
+                <span className="text-[10px] font-bold flex items-center gap-1">
+                  <Zap className="w-2.5 h-2.5" /> Dead ReLU
                 </span>
-                {isDeadReLUActive && (
-                  <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping" />
-                )}
+                <span className="text-[8px] opacity-80">∇ = 0 Freeze</span>
               </button>
             </div>
           </div>
 
-          {/* SECTION 3: COMPACT DATASET PILL SELECTOR WITH MINI SVG ICONS */}
-          <div className="space-y-1.5 pt-1 border-t border-white/[0.06]">
+          {/* SECTION C: TRAINING */}
+          <div className="space-y-2 pt-2 border-t border-[#29374B]">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-mono tracking-wider uppercase text-slate-300 font-semibold">
-                DATASET DISTRIBUTION
+              <span className="text-[10px] font-mono uppercase tracking-wider text-[#9DAFC3] font-semibold">
+                C. Training
               </span>
-              <span className="text-[9px] font-mono text-slate-400">
-                {dataset.length} points
+              <span className="text-[10px] font-mono text-[#9DAFC3]">
+                Epoch: <strong className="text-[#F4F7FB]">{epoch}</strong>
               </span>
             </div>
 
-            {/* 2x2 Grid with miniature SVG dot preview icons */}
-            <div className="grid grid-cols-2 gap-1.5 font-mono text-xs">
-              {/* XOR Pill */}
-              <button
-                onClick={() => onSelectPreset('xor')}
-                className={`p-2 rounded-xl border transition-all flex items-center gap-2 ${
-                  currentPreset === 'xor'
-                    ? 'bg-cyber-cyan/15 border-cyber-cyan text-white shadow-cyan-glow'
-                    : 'bg-[#10141F] border-white/[0.07] hover:border-white/20 text-slate-300'
-                }`}
-              >
-                {/* Mini SVG: 4 dots XOR */}
-                <svg viewBox="0 0 24 24" className="w-5 h-5 shrink-0">
-                  <circle cx="6" cy="6" r="3" fill="#00F5D4" />
-                  <circle cx="18" cy="6" r="3" fill="#FF2A85" />
-                  <circle cx="6" cy="18" r="3" fill="#FF2A85" />
-                  <circle cx="18" cy="18" r="3" fill="#00F5D4" />
-                </svg>
-                <div className="text-left">
-                  <div className="text-[11px] font-bold leading-tight">XOR</div>
-                  <div className="text-[8.5px] text-slate-400 font-sans">Non-linear</div>
-                </div>
-              </button>
-
-              {/* Rings Pill */}
-              <button
-                onClick={() => onSelectPreset('circles')}
-                className={`p-2 rounded-xl border transition-all flex items-center gap-2 ${
-                  currentPreset === 'circles'
-                    ? 'bg-cyber-cyan/15 border-cyber-cyan text-white shadow-cyan-glow'
-                    : 'bg-[#10141F] border-white/[0.07] hover:border-white/20 text-slate-300'
-                }`}
-              >
-                {/* Mini SVG: Concentric Circles */}
-                <svg viewBox="0 0 24 24" className="w-5 h-5 shrink-0">
-                  <circle cx="12" cy="12" r="4" fill="#00F5D4" />
-                  <circle cx="12" cy="12" r="9" stroke="#FF2A85" strokeWidth="2" fill="none" />
-                </svg>
-                <div className="text-left">
-                  <div className="text-[11px] font-bold leading-tight">Rings</div>
-                  <div className="text-[8.5px] text-slate-400 font-sans">Radial split</div>
-                </div>
-              </button>
-
-              {/* Moons Pill */}
-              <button
-                onClick={() => onSelectPreset('moons')}
-                className={`p-2 rounded-xl border transition-all flex items-center gap-2 ${
-                  currentPreset === 'moons'
-                    ? 'bg-cyber-cyan/15 border-cyber-cyan text-white shadow-cyan-glow'
-                    : 'bg-[#10141F] border-white/[0.07] hover:border-white/20 text-slate-300'
-                }`}
-              >
-                {/* Mini SVG: Intertwined Moons */}
-                <svg viewBox="0 0 24 24" className="w-5 h-5 shrink-0">
-                  <path d="M 4 14 Q 10 4 16 10" stroke="#00F5D4" strokeWidth="2.5" fill="none" />
-                  <path d="M 8 18 Q 14 24 20 14" stroke="#FF2A85" strokeWidth="2.5" fill="none" />
-                </svg>
-                <div className="text-left">
-                  <div className="text-[11px] font-bold leading-tight">Moons</div>
-                  <div className="text-[8.5px] text-slate-400 font-sans">Topological</div>
-                </div>
-              </button>
-
-              {/* Linear Pill */}
-              <button
-                onClick={() => onSelectPreset('linear')}
-                className={`p-2 rounded-xl border transition-all flex items-center gap-2 ${
-                  currentPreset === 'linear'
-                    ? 'bg-cyber-cyan/15 border-cyber-cyan text-white shadow-cyan-glow'
-                    : 'bg-[#10141F] border-white/[0.07] hover:border-white/20 text-slate-300'
-                }`}
-              >
-                {/* Mini SVG: Linear Blobs */}
-                <svg viewBox="0 0 24 24" className="w-5 h-5 shrink-0">
-                  <circle cx="7" cy="7" r="2.5" fill="#00F5D4" />
-                  <circle cx="11" cy="9" r="2.5" fill="#00F5D4" />
-                  <circle cx="14" cy="17" r="2.5" fill="#FF2A85" />
-                  <circle cx="18" cy="15" r="2.5" fill="#FF2A85" />
-                  <line x1="4" y1="18" x2="20" y2="6" stroke="rgba(255,255,255,0.2)" strokeWidth="1" strokeDasharray="2,2" />
-                </svg>
-                <div className="text-left">
-                  <div className="text-[11px] font-bold leading-tight">Linear</div>
-                  <div className="text-[8.5px] text-slate-400 font-sans">Separable</div>
-                </div>
-              </button>
-            </div>
-
-            {/* Quick Canvas Point Drawing Class Selector */}
-            <div className="flex items-center justify-between pt-1">
-              <span className="text-[9px] font-mono text-slate-400">Click canvas to drop:</span>
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => onSetActiveClass(0)}
-                  className={`px-2 py-0.5 rounded text-[10px] font-mono flex items-center gap-1 border ${
-                    activeClass === 0
-                      ? 'bg-cyber-cyan/20 border-cyber-cyan text-cyber-cyan font-bold'
-                      : 'bg-white/[0.03] border-white/[0.06] text-slate-400'
-                  }`}
-                >
-                  <span className="w-2 h-2 rounded-full bg-cyber-cyan" />
-                  Class 0
-                </button>
-                <button
-                  onClick={() => onSetActiveClass(1)}
-                  className={`px-2 py-0.5 rounded text-[10px] font-mono flex items-center gap-1 border ${
-                    activeClass === 1
-                      ? 'bg-cyber-magenta/20 border-cyber-magenta text-cyber-magenta font-bold'
-                      : 'bg-white/[0.03] border-white/[0.06] text-slate-400'
-                  }`}
-                >
-                  <span className="w-2 h-2 rounded-full bg-cyber-magenta" />
-                  Class 1
-                </button>
-                <button
-                  onClick={onUndoPoint}
-                  title="Undo point"
-                  className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-white/[0.03] hover:bg-white/[0.08] text-slate-400 border border-white/[0.06]"
-                >
-                  Undo
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* SECTION 4: REAL NEURAL TRAINING ENGINE CONTROLS */}
-          <div className="space-y-2 pt-1 border-t border-white/[0.06]">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-mono tracking-wider uppercase text-slate-300 font-semibold">
-                TRAINING ENGINE
-              </span>
-              <div className="flex items-center gap-1.5 text-[10px] font-mono">
-                <span className="text-slate-400">Epoch:</span>
-                <span className="text-white font-bold tabular-nums">{epoch}</span>
-              </div>
-            </div>
-
-            {/* Telemetry pill */}
-            <div className="grid grid-cols-2 gap-1.5 bg-black/40 p-2 rounded-xl border border-white/[0.05] font-mono text-[11px]">
+            {/* Loss & Accuracy Pill */}
+            <div className="grid grid-cols-2 gap-1.5 p-2 rounded-lg bg-[#0B1020] border border-[#29374B] font-mono text-[10px]">
               <div>
-                <span className="text-[9px] text-slate-400 uppercase block">BCE Loss</span>
-                <span className="text-cyber-magenta font-bold tabular-nums text-xs">
+                <span className="text-[#9DAFC3] block">BCE Loss</span>
+                <span className="text-xs font-bold text-[#F078C5] tabular-nums">
                   {currentLoss.toFixed(4)}
                 </span>
               </div>
               <div>
-                <span className="text-[9px] text-slate-400 uppercase block">Accuracy</span>
-                <span className="text-cyber-cyan font-bold tabular-nums text-xs">
+                <span className="text-[#9DAFC3] block">Accuracy</span>
+                <span className="text-xs font-bold text-[#53D4F4] tabular-nums">
                   {(currentAcc * 100).toFixed(1)}%
                 </span>
               </div>
             </div>
 
-            {/* Optimizer Selector Pills */}
+            {/* Optimizer Switcher */}
             <div className="grid grid-cols-3 gap-1 font-mono text-[10px]">
-              <button
-                onClick={() => onChangeOptConfig({ ...optConfig, type: 'sgd' })}
-                className={`py-1 rounded border transition-colors text-center ${
-                  optConfig.type === 'sgd'
-                    ? 'bg-cyber-cyan/20 border-cyber-cyan text-cyber-cyan font-bold'
-                    : 'bg-white/[0.03] border-white/[0.06] text-slate-400 hover:text-white'
-                }`}
-              >
-                SGD
-              </button>
-              <button
-                onClick={() => onChangeOptConfig({ ...optConfig, type: 'momentum' })}
-                className={`py-1 rounded border transition-colors text-center ${
-                  optConfig.type === 'momentum'
-                    ? 'bg-cyber-amber/20 border-cyber-amber text-cyber-amber font-bold'
-                    : 'bg-white/[0.03] border-white/[0.06] text-slate-400 hover:text-white'
-                }`}
-              >
-                Momentum
-              </button>
-              <button
-                onClick={() => onChangeOptConfig({ ...optConfig, type: 'adam' })}
-                className={`py-1 rounded border transition-colors text-center ${
-                  optConfig.type === 'adam'
-                    ? 'bg-cyber-violet/20 border-cyber-violet text-cyber-violet font-bold'
-                    : 'bg-white/[0.03] border-white/[0.06] text-slate-400 hover:text-white'
-                }`}
-              >
-                Adam
-              </button>
+              {(['sgd', 'momentum', 'adam'] as const).map(opt => (
+                <button
+                  key={opt}
+                  onClick={() => onChangeOptConfig({ ...optConfig, type: opt })}
+                  className={`py-1 rounded border transition-all text-center uppercase ${
+                    optConfig.type === opt
+                      ? 'border-[#53D4F4] bg-[#182438] text-[#53D4F4] font-bold'
+                      : 'border-[#29374B] bg-[#111A2A] text-[#9DAFC3] hover:text-[#F4F7FB]'
+                  }`}
+                >
+                  {opt}
+                </button>
+              ))}
             </div>
 
-            {/* Action Buttons: Play/Pause, Step, Reset */}
-            <div className="flex items-center gap-1.5 pt-0.5">
+            {/* Learning Rate Slider */}
+            <div className="space-y-1 text-[10px] font-mono">
+              <div className="flex justify-between text-[#9DAFC3]">
+                <span>Learning Rate (η)</span>
+                <span className="text-[#F4F7FB]">{optConfig.learningRate.toFixed(2)}</span>
+              </div>
+              <input
+                type="range"
+                min="0.01"
+                max="0.5"
+                step="0.01"
+                value={optConfig.learningRate}
+                onChange={e =>
+                  onChangeOptConfig({ ...optConfig, learningRate: parseFloat(e.target.value) })
+                }
+                className="w-full h-1 bg-[#182438] rounded-lg appearance-none cursor-pointer accent-[#53D4F4]"
+              />
+            </div>
+
+            {/* Training Action Buttons */}
+            <div className="flex items-center gap-1.5 pt-1">
               <button
                 onClick={() => setIsTraining(!isTraining)}
-                className={`flex-1 py-1.5 rounded-xl font-mono text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                className={`flex-1 py-1.5 rounded-lg font-mono text-xs font-semibold transition-all flex items-center justify-center gap-1.5 ${
                   isTraining
-                    ? 'bg-amber-500 hover:bg-amber-400 text-black shadow-amber-glow'
-                    : 'bg-cyber-cyan hover:bg-cyber-cyan/90 text-black shadow-cyan-glow'
+                    ? 'bg-[#F7C76B] text-[#0B1020] hover:bg-[#ebd07a]'
+                    : 'bg-[#53D4F4] text-[#0B1020] hover:bg-[#68ddfc]'
                 }`}
               >
                 {isTraining ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
-                {isTraining ? 'PAUSE' : 'AUTO-TRAIN'}
+                <span>{isTraining ? 'Pause' : 'Train Loop'}</span>
               </button>
 
               <button
                 onClick={handleStepOnce}
                 disabled={isTraining}
-                title="Single Forward & Backprop Step"
-                className="py-1.5 px-3 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] text-slate-200 border border-white/[0.08] text-xs font-mono font-bold transition-colors disabled:opacity-50"
+                className="py-1.5 px-2.5 rounded-lg border border-[#29374B] bg-[#182438] hover:bg-[#20304A] text-[#F4F7FB] text-xs font-mono disabled:opacity-50"
+                title="Single step"
               >
                 Step
               </button>
 
               <button
                 onClick={handleResetWeights}
-                title="Reset network weights to default"
-                className="p-1.5 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] text-slate-400 hover:text-white border border-white/[0.08] transition-colors"
+                className="p-1.5 rounded-lg border border-[#29374B] bg-[#182438] hover:bg-[#20304A] text-[#9DAFC3] hover:text-[#EF4444]"
+                title="Reset weights"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
               </button>
@@ -569,13 +487,16 @@ export const LeftTactileStudio: React.FC<LeftTactileStudioProps> = ({
         </div>
       </div>
 
-      {/* Collapse / Expand Toggle Handle */}
+      {/* Collapse Handle */}
       <button
-        onClick={() => setIsCollapsed(!isCollapsed)}
-        title={isCollapsed ? 'Expand Matrix Studio' : 'Collapse Matrix Studio'}
-        className="self-center ml-1 w-5 h-12 glass-hud rounded-r-lg flex items-center justify-center text-slate-400 hover:text-white border-l-0 border-white/[0.08] hover:border-cyber-cyan/50 transition-colors shadow-lg"
+        onClick={() => {
+          if (onToggleCollapse) onToggleCollapse();
+          else setInternalCollapsed(!internalCollapsed);
+        }}
+        className="self-center ml-0.5 w-4 h-10 rounded-r-md border border-l-0 border-[#29374B] bg-[#111A2A] hover:bg-[#182438] text-[#9DAFC3] hover:text-[#F4F7FB] flex items-center justify-center transition-colors shadow-md"
+        title={collapsed ? 'Expand Controls' : 'Collapse Controls'}
       >
-        {isCollapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronLeft className="w-3.5 h-3.5" />}
+        {collapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronLeft className="w-3 h-3" />}
       </button>
     </aside>
   );
