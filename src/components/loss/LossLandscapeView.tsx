@@ -28,12 +28,14 @@ interface LossLandscapeViewProps {
   dataset: Point2D[];
   weights: NetworkWeights;
   onSelectParam: (p1: number, p2: number) => void;
+  className?: string;
 }
 
 export const LossLandscapeView: React.FC<LossLandscapeViewProps> = ({
   dataset,
   weights,
   onSelectParam,
+  className = '',
 }) => {
   const [viewMode, setViewMode] = useState<'3d' | 'contour'>('3d');
   const [sliceKey, setSliceKey] = useState<'W1_diag' | 'W1_row1' | 'W2_both'>('W1_diag');
@@ -601,7 +603,7 @@ export const LossLandscapeView: React.FC<LossLandscapeViewProps> = ({
   };
 
   return (
-    <div className="bg-[#0E1524] rounded-xl border border-[#1E2D4A] p-3 space-y-2.5 shadow-glass flex flex-col h-full">
+    <div className={`glass-hud rounded-2xl border border-white/[0.08] p-3.5 space-y-2.5 shadow-hud flex flex-col ${className}`}>
       {/* Header & Controls */}
       <div className="flex flex-wrap items-center justify-between border-b border-[#1E2D4A]/60 pb-2 gap-2">
         <div className="flex items-center gap-2">

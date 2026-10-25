@@ -1,19 +1,7 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { Point2D, Matrix2x2, Vector2D, NetworkWeights, ActivationType } from '../../math/types';
+import { Point2D, Matrix2x2, Vector2D, NetworkWeights } from '../../math/types';
 import { LinearAlgebra } from '../../math/linearAlgebra';
 import { Activations } from '../../math/activations';
-import { MathView } from '../common/MathView';
-import {
-  Play,
-  Pause,
-  RotateCcw,
-  Layers,
-  CircleDot,
-  Sparkles,
-  MoveRight,
-  Maximize2,
-  Compass,
-} from 'lucide-react';
 
 interface ManifoldWarper2DProps {
   weights: NetworkWeights;
@@ -27,6 +15,7 @@ interface ManifoldWarper2DProps {
   onAddPoint: (pt: Point2D) => void;
   activeClass: 0 | 1;
   showHeatmap: boolean;
+  className?: string;
 }
 
 export const ManifoldWarper2D: React.FC<ManifoldWarper2DProps> = ({
@@ -41,78 +30,19 @@ export const ManifoldWarper2D: React.FC<ManifoldWarper2DProps> = ({
   onAddPoint,
   activeClass,
   showHeatmap,
+  className = '',
 }) => {
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [isPlayingHomotopy, setIsPlayingHomotopy] = useState(false);
-  const [isPlayingSVD, setIsPlayingSVD] = useState(false);
-  const animFrameRef = useRef<number | null>(null);
   const [hoverCoord, setHoverCoord] = useState<{ x: number; y: number } | null>(null);
 
   // Coordinate domain [-3.5, 3.5]
   const domain = 3.5;
 
-  // Calculate live SVD decomposition
-  const svd = LinearAlgebra.svd(weights.W1);
-
-  // Auto-play Homotopy space folding
-  useEffect(() => {
-    if (!isPlayingHomotopy) {
-      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
-      return;
-    }
-
-    let lastTime = performance.now();
-    const animate = (currentTime: number) => {
-      const dt = (currentTime - lastTime) / 1000;
-      lastTime = currentTime;
-
-      onChangeTau((prevTau: number) => {
-        let nextTau = prevTau + dt * 0.85;
-        if (nextTau > 3.0) nextTau = 0.0;
-        return nextTau;
-      });
-
-      animFrameRef.current = requestAnimationFrame(animate);
-    };
-
-    animFrameRef.current = requestAnimationFrame(animate);
-    return () => {
-      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
-    };
-  }, [isPlayingHomotopy, onChangeTau]);
-
-  // Auto-play SVD 3-stage continuous animation
-  useEffect(() => {
-    if (!isPlayingSVD) {
-      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
-      return;
-    }
-
-    let lastTime = performance.now();
-    const animate = (currentTime: number) => {
-      const dt = (currentTime - lastTime) / 1000;
-      lastTime = currentTime;
-
-      onChangeTauSVD((prevTau: number) => {
-        let nextTau = prevTau + dt * 0.75;
-        if (nextTau > 3.0) nextTau = 0.0;
-        return nextTau;
-      });
-
-      animFrameRef.current = requestAnimationFrame(animate);
-    };
-
-    animFrameRef.current = requestAnimationFrame(animate);
-    return () => {
-      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
-    };
-  }, [isPlayingSVD, onChangeTauSVD]);
-
   // Core Mapping Function: R^2 -> R^2 based on active mode
   const mapPoint = useCallback(
     (x: number, y: number): [number, number] => {
       if (warperMode === 'svd') {
-        // Continuous 3-stage SVD Transformation
         const M = LinearAlgebra.interpolateSVDMatrix(weights.W1, tauSVD);
         const transformed = LinearAlgebra.transformVector(M, [x, y]);
         return [transformed[0], transformed[1]];
@@ -134,7 +64,7 @@ export const ManifoldWarper2D: React.FC<ManifoldWarper2DProps> = ({
         const a1_1 = Activations.interpolateFolding(z1_1, t, weights.activation);
         return [a1_0, a1_1];
       } else {
-        // Stage 3: Output Projection & Decision Hyperplane
+        // Stage 3: Output Projection
         const z1_0 = weights.W1[0][0] * x + weights.W1[0][1] * y + weights.b1[0];
         const z1_1 = weights.W1[1][0] * x + weights.W1[1][1] * y + weights.b1[1];
         const a1_0 = Activations.fn(z1_0, weights.activation);
@@ -145,18 +75,34 @@ export const ManifoldWarper2D: React.FC<ManifoldWarper2DProps> = ({
     [weights, warperMode, tau, tauSVD]
   );
 
-  // Main Canvas Rendering Loop
+  // Resize and Render Canvas
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    const container = containerRef.current;
+    if (!canvas || !container) return;
+
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const width = canvas.width;
-    const height = canvas.height;
+    // High-DPI Canvas scaling
+    const dpr = window.devicePixelRatio || 1;
+    const rect = container.getBoundingClientRect();
+    const width = Math.floor(rect.width);
+    const height = Math.floor(rect.height);
+
+    canvas.width = width * dpr;
+    canvas.height = height * dpr;
+    canvas.style.width = `${width}px`;
+    canvas.style.height = `${height}px`;
+
+    ctx.resetTransform();
+    ctx.scale(dpr, dpr);
+
     const cx = width / 2;
     const cy = height / 2;
-    const scale = width / (domain * 2);
+    // Scale so domain fits cleanly with padding
+    const minDim = Math.min(width, height);
+    const scale = minDim / (domain * 2.1);
 
     const toScreen = (x: number, y: number): [number, number] => [
       cx + x * scale,
@@ -168,13 +114,13 @@ export const ManifoldWarper2D: React.FC<ManifoldWarper2DProps> = ({
       (cy - sy) / scale,
     ];
 
-    // Clear background
-    ctx.fillStyle = '#090D16';
+    // 1. Clear background to Obsidian void
+    ctx.fillStyle = '#05070B';
     ctx.fillRect(0, 0, width, height);
 
-    // 1. Draw Decision Boundary Probability Heatmap (only in Homotopy mode)
+    // 2. Decision Boundary Probability Heatmap
     if (showHeatmap && warperMode === 'homotopy') {
-      const res = 48;
+      const res = 56;
       const cellW = width / res;
       const cellH = height / res;
 
@@ -189,10 +135,10 @@ export const ManifoldWarper2D: React.FC<ManifoldWarper2DProps> = ({
           const prob = Activations.fn(z2, 'sigmoid');
 
           if (prob < 0.5) {
-            const alpha = (0.5 - prob) * 0.45;
+            const alpha = (0.5 - prob) * 0.35;
             ctx.fillStyle = `rgba(0, 245, 212, ${alpha})`;
           } else {
-            const alpha = (prob - 0.5) * 0.45;
+            const alpha = (prob - 0.5) * 0.35;
             ctx.fillStyle = `rgba(255, 42, 133, ${alpha})`;
           }
           ctx.fillRect(i * cellW, j * cellH, cellW + 1, cellH + 1);
@@ -200,17 +146,15 @@ export const ManifoldWarper2D: React.FC<ManifoldWarper2DProps> = ({
       }
     }
 
-    // 2. Draw Transformed Cartesian Grid Lines
-    const gridRange = 3.0;
-    const gridStep = 0.5;
-    const samplesPerLine = 40;
+    // 3. Sub-grid & Major Grid (3Blue1Brown Style)
+    const gridRange = 3.5;
+    const samplesPerLine = 48;
 
-    ctx.lineWidth = 1;
-
-    // Horizontal grid lines: y = const
-    for (let gy = -gridRange; gy <= gridRange + 1e-5; gy += gridStep) {
-      const isAxis = Math.abs(gy) < 1e-4;
-      ctx.strokeStyle = isAxis ? 'rgba(148, 163, 184, 0.5)' : 'rgba(30, 45, 74, 0.4)';
+    // Faint Sub-grid lines every 0.25 units
+    ctx.lineWidth = 0.5;
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.035)';
+    for (let gy = -gridRange; gy <= gridRange + 1e-5; gy += 0.25) {
+      if (Math.abs(gy % 1.0) < 0.05) continue; // skip major lines
       ctx.beginPath();
       for (let s = 0; s <= samplesPerLine; s++) {
         const gx = -gridRange + (s / samplesPerLine) * (2 * gridRange);
@@ -221,11 +165,8 @@ export const ManifoldWarper2D: React.FC<ManifoldWarper2DProps> = ({
       }
       ctx.stroke();
     }
-
-    // Vertical grid lines: x = const
-    for (let gx = -gridRange; gx <= gridRange + 1e-5; gx += gridStep) {
-      const isAxis = Math.abs(gx) < 1e-4;
-      ctx.strokeStyle = isAxis ? 'rgba(148, 163, 184, 0.5)' : 'rgba(30, 45, 74, 0.4)';
+    for (let gx = -gridRange; gx <= gridRange + 1e-5; gx += 0.25) {
+      if (Math.abs(gx % 1.0) < 0.05) continue;
       ctx.beginPath();
       for (let s = 0; s <= samplesPerLine; s++) {
         const gy = -gridRange + (s / samplesPerLine) * (2 * gridRange);
@@ -237,8 +178,39 @@ export const ManifoldWarper2D: React.FC<ManifoldWarper2DProps> = ({
       ctx.stroke();
     }
 
-    // Helper: Draw Arrow
-    const drawArrow = (
+    // Crisp Major Grid lines every 1.0 unit
+    for (let gy = -gridRange; gy <= gridRange + 1e-5; gy += 1.0) {
+      const isAxis = Math.abs(gy) < 1e-4;
+      ctx.lineWidth = isAxis ? 1.5 : 1.0;
+      ctx.strokeStyle = isAxis ? 'rgba(255, 255, 255, 0.45)' : 'rgba(0, 245, 212, 0.14)';
+      ctx.beginPath();
+      for (let s = 0; s <= samplesPerLine; s++) {
+        const gx = -gridRange + (s / samplesPerLine) * (2 * gridRange);
+        const [mx, my] = mapPoint(gx, gy);
+        const [sx, sy] = toScreen(mx, my);
+        if (s === 0) ctx.moveTo(sx, sy);
+        else ctx.lineTo(sx, sy);
+      }
+      ctx.stroke();
+    }
+
+    for (let gx = -gridRange; gx <= gridRange + 1e-5; gx += 1.0) {
+      const isAxis = Math.abs(gx) < 1e-4;
+      ctx.lineWidth = isAxis ? 1.5 : 1.0;
+      ctx.strokeStyle = isAxis ? 'rgba(255, 255, 255, 0.45)' : 'rgba(0, 245, 212, 0.14)';
+      ctx.beginPath();
+      for (let s = 0; s <= samplesPerLine; s++) {
+        const gy = -gridRange + (s / samplesPerLine) * (2 * gridRange);
+        const [mx, my] = mapPoint(gx, gy);
+        const [sx, sy] = toScreen(mx, my);
+        if (s === 0) ctx.moveTo(sx, sy);
+        else ctx.lineTo(sx, sy);
+      }
+      ctx.stroke();
+    }
+
+    // Helper: Draw Vector Arrow with glowing hat
+    const drawVector = (
       from: [number, number],
       to: [number, number],
       color: string,
@@ -248,11 +220,13 @@ export const ManifoldWarper2D: React.FC<ManifoldWarper2DProps> = ({
       const dx = to[0] - from[0];
       const dy = to[1] - from[1];
       const angle = Math.atan2(dy, dx);
-      const headLen = 9;
+      const headLen = 10;
 
       ctx.strokeStyle = color;
       ctx.fillStyle = color;
       ctx.lineWidth = lineWidth;
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 8;
 
       ctx.beginPath();
       ctx.moveTo(from[0], from[1]);
@@ -271,17 +245,127 @@ export const ManifoldWarper2D: React.FC<ManifoldWarper2DProps> = ({
       );
       ctx.closePath();
       ctx.fill();
+      ctx.shadowBlur = 0;
 
-      ctx.font = 'bold 11px monospace';
-      ctx.fillText(label, to[0] + 8, to[1] - 4);
+      // Vector label with background pill
+      ctx.font = 'bold 11px "JetBrains Mono", monospace';
+      const labelMetrics = ctx.measureText(label);
+      const lx = to[0] + 10;
+      const ly = to[1] - 4;
+
+      ctx.fillStyle = 'rgba(5, 7, 11, 0.85)';
+      ctx.fillRect(lx - 2, ly - 10, labelMetrics.width + 4, 13);
+      ctx.fillStyle = color;
+      ctx.fillText(label, lx, ly);
     };
 
-    // 3. Render Unit Circle / SVD Ellipse Deformation (SVD Breakdown Mode)
-    if (warperMode === 'svd') {
-      const circlePts = 120;
-      ctx.beginPath();
+    // 4. Parallelogram & Basis Vectors î and ĵ (Homotopy Mode)
+    if (warperMode === 'homotopy') {
+      const pO = mapPoint(0, 0);
+      const pI = mapPoint(1, 0);
+      const pDiag = mapPoint(1, 1);
+      const pJ = mapPoint(0, 1);
 
-      // Sample unit circle x^2 + y^2 = 1 and transform through SVD
+      const sO = toScreen(pO[0], pO[1]);
+      const sI = toScreen(pI[0], pI[1]);
+      const sDiag = toScreen(pDiag[0], pDiag[1]);
+      const sJ = toScreen(pJ[0], pJ[1]);
+
+      // Fill Transformed Parallelogram
+      ctx.beginPath();
+      ctx.moveTo(sO[0], sO[1]);
+      ctx.lineTo(sI[0], sI[1]);
+      ctx.lineTo(sDiag[0], sDiag[1]);
+      ctx.lineTo(sJ[0], sJ[1]);
+      ctx.closePath();
+
+      // Translucent emerald / cyan gradient fill
+      const grad = ctx.createLinearGradient(sO[0], sO[1], sDiag[0], sDiag[1]);
+      grad.addColorStop(0, 'rgba(0, 245, 212, 0.22)');
+      grad.addColorStop(1, 'rgba(16, 185, 129, 0.12)');
+      ctx.fillStyle = grad;
+      ctx.fill();
+
+      ctx.strokeStyle = 'rgba(0, 245, 212, 0.6)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      // Floating Area Label inside centroid of parallelogram
+      const centroidX = (sO[0] + sI[0] + sDiag[0] + sJ[0]) / 4;
+      const centroidY = (sO[1] + sI[1] + sDiag[1] + sJ[1]) / 4;
+
+      // Calculate live determinant area scaling
+      const detVal = LinearAlgebra.det(weights.W1);
+      const currentArea = (1 - Math.min(1, tau)) * 1.0 + Math.min(1, tau) * Math.abs(detVal);
+
+      ctx.font = 'bold 10px "JetBrains Mono", monospace';
+      const areaText = `Area = |det| = ${currentArea.toFixed(2)}x`;
+      const textWidth = ctx.measureText(areaText).width;
+
+      ctx.fillStyle = 'rgba(5, 7, 11, 0.85)';
+      ctx.strokeStyle = 'rgba(0, 245, 212, 0.3)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.roundRect(centroidX - textWidth / 2 - 5, centroidY - 8, textWidth + 10, 16, 4);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = '#00F5D4';
+      ctx.textAlign = 'center';
+      ctx.fillText(areaText, centroidX, centroidY + 3);
+      ctx.textAlign = 'start'; // reset
+
+      // Draw Basis Vectors î and ĵ
+      drawVector(sO, sI, '#10B981', 'î');
+      drawVector(sO, sJ, '#F59E0B', 'ĵ');
+    }
+
+    // 5. Activation Fold Crease Lines (tau in [1, 2])
+    if (warperMode === 'homotopy' && tau >= 0.9 && tau <= 2.2) {
+      // Line 1: w11 * x + w12 * y + b1 = 0
+      // Line 2: w21 * x + w22 * y + b2 = 0
+      const lines = [
+        { w: weights.W1[0], b: weights.b1[0], label: 'Fold Axis 1' },
+        { w: weights.W1[1], b: weights.b1[1], label: 'Fold Axis 2' },
+      ];
+
+      lines.forEach(({ w, b, label }, idx) => {
+        if (Math.abs(w[0]) < 1e-4 && Math.abs(w[1]) < 1e-4) return;
+
+        ctx.save();
+        ctx.setLineDash([6, 4]);
+        ctx.strokeStyle = idx === 0 ? 'rgba(139, 92, 246, 0.85)' : 'rgba(255, 42, 133, 0.85)';
+        ctx.lineWidth = 1.5;
+        ctx.shadowColor = idx === 0 ? '#8B5CF6' : '#FF2A85';
+        ctx.shadowBlur = 8;
+
+        ctx.beginPath();
+        const foldSamples = 40;
+        for (let s = 0; s <= foldSamples; s++) {
+          const tLine = -3.5 + (s / foldSamples) * 7.0;
+          let lx = 0, ly = 0;
+          if (Math.abs(w[1]) > Math.abs(w[0])) {
+            lx = tLine;
+            ly = (-b - w[0] * lx) / w[1];
+          } else {
+            ly = tLine;
+            lx = (-b - w[1] * ly) / w[0];
+          }
+
+          const [mx, my] = mapPoint(lx, ly);
+          const [sx, sy] = toScreen(mx, my);
+          if (s === 0) ctx.moveTo(sx, sy);
+          else ctx.lineTo(sx, sy);
+        }
+        ctx.stroke();
+        ctx.restore();
+      });
+    }
+
+    // 6. SVD Unit Circle & Ellipse Deformation (SVD Mode)
+    if (warperMode === 'svd') {
+      const circlePts = 140;
+      ctx.beginPath();
       for (let i = 0; i <= circlePts; i++) {
         const theta = (i / circlePts) * 2 * Math.PI;
         const ucX = Math.cos(theta);
@@ -291,9 +375,8 @@ export const ManifoldWarper2D: React.FC<ManifoldWarper2DProps> = ({
         if (i === 0) ctx.moveTo(sx, sy);
         else ctx.lineTo(sx, sy);
       }
-
       ctx.closePath();
-      ctx.fillStyle = 'rgba(0, 245, 212, 0.12)';
+      ctx.fillStyle = 'rgba(0, 245, 212, 0.14)';
       ctx.fill();
 
       ctx.strokeStyle = '#00F5D4';
@@ -301,85 +384,19 @@ export const ManifoldWarper2D: React.FC<ManifoldWarper2DProps> = ({
       ctx.shadowColor = '#00F5D4';
       ctx.shadowBlur = 10;
       ctx.stroke();
-      ctx.shadowBlur = 0; // reset
+      ctx.shadowBlur = 0;
 
       // Draw Principal Semi-Axes Vectors of the Ellipse
       const axes = LinearAlgebra.getSVDEllipseAxes(weights.W1, tauSVD);
       const originScreen = toScreen(0, 0);
-
       const sAxis1 = toScreen(axes.axis1[0], axes.axis1[1]);
       const sAxis2 = toScreen(axes.axis2[0], axes.axis2[1]);
 
-      drawArrow(
-        originScreen,
-        sAxis1,
-        '#F59E0B',
-        `σ₁: ${axes.len1.toFixed(2)}`,
-        3.0
-      );
-      drawArrow(
-        originScreen,
-        sAxis2,
-        '#8B5CF6',
-        `σ₂: ${axes.len2.toFixed(2)}`,
-        3.0
-      );
-    } else {
-      // Shaded Unit Square in Homotopy Mode
-      const o = mapPoint(0, 0);
-      const pI = mapPoint(1, 0);
-      const pDiag = mapPoint(1, 1);
-      const pJ = mapPoint(0, 1);
-
-      const sO = toScreen(o[0], o[1]);
-      const sI = toScreen(pI[0], pI[1]);
-      const sDiag = toScreen(pDiag[0], pDiag[1]);
-      const sJ = toScreen(pJ[0], pJ[1]);
-
-      ctx.fillStyle = 'rgba(0, 245, 212, 0.12)';
-      ctx.strokeStyle = 'rgba(0, 245, 212, 0.4)';
-      ctx.beginPath();
-      ctx.moveTo(sO[0], sO[1]);
-      ctx.lineTo(sI[0], sI[1]);
-      ctx.lineTo(sDiag[0], sDiag[1]);
-      ctx.lineTo(sJ[0], sJ[1]);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-
-      // Basis Vectors î and ĵ
-      drawArrow(sO, sI, '#10B981', 'î');
-      drawArrow(sO, sJ, '#F59E0B', 'ĵ');
+      drawVector(originScreen, sAxis1, '#F59E0B', `σ₁: ${axes.len1.toFixed(2)}`, 2.5);
+      drawVector(originScreen, sAxis2, '#8B5CF6', `σ₂: ${axes.len2.toFixed(2)}`, 2.5);
     }
 
-    // 4. Invariant Eigen-axes (Homotopy mode)
-    const eigenRes = LinearAlgebra.eigen(weights.W1);
-    if (warperMode === 'homotopy' && eigenRes.isReal && eigenRes.vectors && tau >= 0.8 && tau <= 1.5) {
-      ctx.setLineDash([4, 4]);
-      ctx.lineWidth = 1.5;
-      ctx.strokeStyle = '#8B5CF6';
-
-      const v1 = eigenRes.vectors[0];
-      const v2 = eigenRes.vectors[1];
-
-      const p1a = toScreen(-v1[0] * 3, -v1[1] * 3);
-      const p1b = toScreen(v1[0] * 3, v1[1] * 3);
-      ctx.beginPath();
-      ctx.moveTo(p1a[0], p1a[1]);
-      ctx.lineTo(p1b[0], p1b[1]);
-      ctx.stroke();
-
-      const p2a = toScreen(-v2[0] * 3, -v2[1] * 3);
-      const p2b = toScreen(v2[0] * 3, v2[1] * 3);
-      ctx.beginPath();
-      ctx.moveTo(p2a[0], p2a[1]);
-      ctx.lineTo(p2b[0], p2b[1]);
-      ctx.stroke();
-
-      ctx.setLineDash([]);
-    }
-
-    // 5. Draw Decision Boundary Hyperplane (Homotopy mode tau >= 1.5)
+    // 7. Decision Boundary Hyperplane (tau >= 1.5)
     if (warperMode === 'homotopy' && tau >= 1.5) {
       const w2_0 = weights.W2[0];
       const w2_1 = weights.W2[1];
@@ -388,7 +405,7 @@ export const ManifoldWarper2D: React.FC<ManifoldWarper2DProps> = ({
       ctx.lineWidth = 2.5;
       ctx.strokeStyle = '#FFFFFF';
       ctx.shadowColor = '#00F5D4';
-      ctx.shadowBlur = 10;
+      ctx.shadowBlur = 12;
       ctx.beginPath();
 
       if (Math.abs(w2_1) > 1e-4) {
@@ -411,472 +428,109 @@ export const ManifoldWarper2D: React.FC<ManifoldWarper2DProps> = ({
       ctx.shadowBlur = 0;
     }
 
-    // 6. Draw Dataset Data Points
+    // 8. Data Points with Outer Halos & White Cores
     for (const pt of dataset) {
       const [mx, my] = mapPoint(pt.x, pt.y);
       const [sx, sy] = toScreen(mx, my);
 
+      // Outer radial glow halo
+      ctx.beginPath();
+      ctx.arc(sx, sy, 8, 0, 2 * Math.PI);
+      ctx.fillStyle = pt.label === 0 ? 'rgba(0, 245, 212, 0.28)' : 'rgba(255, 42, 133, 0.28)';
+      ctx.fill();
+
+      // Colored body ring
       ctx.beginPath();
       ctx.arc(sx, sy, 5.5, 0, 2 * Math.PI);
-
-      if (pt.label === 0) {
-        ctx.fillStyle = '#00F5D4';
-        ctx.strokeStyle = '#042F2C';
-        ctx.shadowColor = 'rgba(0, 245, 212, 0.7)';
-      } else {
-        ctx.fillStyle = '#FF2A85';
-        ctx.strokeStyle = '#38061B';
-        ctx.shadowColor = 'rgba(255, 42, 133, 0.7)';
-      }
-
-      ctx.shadowBlur = 8;
-      ctx.lineWidth = 1.5;
+      ctx.fillStyle = pt.label === 0 ? '#00F5D4' : '#FF2A85';
+      ctx.shadowColor = pt.label === 0 ? 'rgba(0, 245, 212, 0.9)' : 'rgba(255, 42, 133, 0.9)';
+      ctx.shadowBlur = 10;
       ctx.fill();
-      ctx.stroke();
       ctx.shadowBlur = 0;
+
+      // Crisp White Core Dot
+      ctx.beginPath();
+      ctx.arc(sx, sy, 2, 0, 2 * Math.PI);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fill();
     }
 
-    // 7. Crosshair at Origin
+    // 9. Coordinate Crosshair at Origin
     const [scx, scy] = toScreen(0, 0);
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(scx - 6, scy);
-    ctx.lineTo(scx + 6, scy);
-    ctx.moveTo(scx, scy - 6);
-    ctx.lineTo(scx, scy + 6);
+    ctx.moveTo(scx - 8, scy);
+    ctx.lineTo(scx + 8, scy);
+    ctx.moveTo(scx, scy - 8);
+    ctx.lineTo(scx, scy + 8);
     ctx.stroke();
   }, [weights, dataset, tau, tauSVD, warperMode, showHeatmap, mapPoint]);
 
-  // Click on canvas to add point
+  // Click on canvas to add a point
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    const sx = (e.clientX - rect.left) * (canvas.width / rect.width);
-    const sy = (e.clientY - rect.top) * (canvas.height / rect.height);
+    const container = containerRef.current;
+    if (!canvas || !container) return;
 
-    const cx = canvas.width / 2;
-    const cy = canvas.height / 2;
-    const scale = canvas.width / (domain * 2);
+    const rect = container.getBoundingClientRect();
+    const sx = e.clientX - rect.left;
+    const sy = e.clientY - rect.top;
+
+    const cx = rect.width / 2;
+    const cy = rect.height / 2;
+    const minDim = Math.min(rect.width, rect.height);
+    const scale = minDim / (domain * 2.1);
 
     const x = (sx - cx) / scale;
     const y = (cy - sy) / scale;
 
     onAddPoint({
-      x: parseFloat(x.toFixed(2)),
-      y: parseFloat(y.toFixed(2)),
+      x: Math.round(x * 100) / 100,
+      y: Math.round(y * 100) / 100,
       label: activeClass,
-      id: `custom-${Date.now()}`,
     });
   };
 
+  // Hover coordinate tracker
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    const sx = (e.clientX - rect.left) * (canvas.width / rect.width);
-    const sy = (e.clientY - rect.top) * (canvas.height / rect.height);
+    const container = containerRef.current;
+    if (!container) return;
+    const rect = container.getBoundingClientRect();
+    const sx = e.clientX - rect.left;
+    const sy = e.clientY - rect.top;
+    const cx = rect.width / 2;
+    const cy = rect.height / 2;
+    const minDim = Math.min(rect.width, rect.height);
+    const scale = minDim / (domain * 2.1);
 
-    const cx = canvas.width / 2;
-    const cy = canvas.height / 2;
-    const scale = canvas.width / (domain * 2);
-
-    const x = (sx - cx) / scale;
-    const y = (cy - sy) / scale;
-    setHoverCoord({ x, y });
-  };
-
-  const getSVDStageLabel = () => {
-    if (tauSVD <= 1.0) {
-      const pct = Math.round(tauSVD * 100);
-      return `SVD Stage 1: Orthogonal Rotation/Reflection by Vᵀ [${pct}%]`;
-    } else if (tauSVD <= 2.0) {
-      const pct = Math.round((tauSVD - 1.0) * 100);
-      return `SVD Stage 2: Diagonal Scaling Σ = diag(σ₁, σ₂) [${pct}%] (Unit Circle → Ellipse)`;
-    } else {
-      const pct = Math.round((tauSVD - 2.0) * 100);
-      return `SVD Stage 3: Final Orthogonal Rotation by U [${pct}%] (W₁ = U Σ Vᵀ)`;
-    }
+    setHoverCoord({
+      x: (sx - cx) / scale,
+      y: (cy - sy) / scale,
+    });
   };
 
   return (
-    <div className="flex flex-col h-full bg-[#0E1524] rounded-xl border border-[#1E2D4A] p-3 shadow-glass">
-      {/* Top Header & Mode Toggle Switch */}
-      <div className="flex flex-wrap items-center justify-between pb-2 mb-2 border-b border-[#1E2D4A]/60 gap-2">
-        <div>
-          <div className="flex items-center gap-2">
-            <h2 className="text-sm font-bold text-white flex items-center gap-2">
-              <Layers className="w-4 h-4 text-cyber-cyan" />
-              2D Manifold Warper & Geometry Engine
-            </h2>
-          </div>
-          <p className="text-[11px] font-mono text-cyber-cyan">
-            {warperMode === 'svd'
-              ? getSVDStageLabel()
-              : tau <= 1.0
-              ? `Phase 1: Affine Warp (1 - τ)I + τ(W₁x + b₁)`
-              : tau <= 2.0
-              ? `Phase 2: Topological Fold via ${weights.activation.toUpperCase()}`
-              : `Phase 3: Decision Boundary Hyperplane`}
-          </p>
-        </div>
+    <div
+      ref={containerRef}
+      className={`relative w-full h-full overflow-hidden bg-[#05070B] ${className}`}
+    >
+      <canvas
+        ref={canvasRef}
+        onClick={handleCanvasClick}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={() => setHoverCoord(null)}
+        className="w-full h-full block cursor-crosshair"
+      />
 
-        {/* Mode Switcher Pill */}
-        <div className="flex items-center bg-[#131B2E] p-1 rounded-lg border border-[#2A374F] text-[10px] font-mono">
-          <button
-            onClick={() => {
-              setIsPlayingSVD(false);
-              onChangeWarperMode('homotopy');
-            }}
-            className={`px-2.5 py-1 rounded flex items-center gap-1 transition-all ${
-              warperMode === 'homotopy'
-                ? 'bg-cyber-cyan text-black font-bold shadow-cyan-glow'
-                : 'text-slate-300 hover:text-white'
-            }`}
-          >
-            <Layers className="w-3 h-3" /> Neural Homotopy (τ)
-          </button>
-          <button
-            onClick={() => {
-              setIsPlayingHomotopy(false);
-              onChangeWarperMode('svd');
-            }}
-            className={`px-2.5 py-1 rounded flex items-center gap-1 transition-all ${
-              warperMode === 'svd'
-                ? 'bg-cyber-amber text-black font-bold shadow-amber-glow'
-                : 'text-slate-300 hover:text-white'
-            }`}
-          >
-            <CircleDot className="w-3 h-3" /> SVD Breakdown (UΣVᵀ)
-          </button>
-        </div>
-      </div>
-
-      {/* Main Canvas Area */}
-      <div className="relative flex-1 min-h-[330px] flex items-center justify-center bg-[#090D16] rounded-lg overflow-hidden border border-[#1E2D4A]/50 cursor-crosshair">
-        <canvas
-          ref={canvasRef}
-          width={520}
-          height={520}
-          onClick={handleCanvasClick}
-          onMouseMove={handleMouseMove}
-          onMouseLeave={() => setHoverCoord(null)}
-          className="w-full h-full object-contain"
-        />
-
-        {/* Overlay Badges */}
-        <div className="absolute top-2 left-2 bg-[#0E1524]/85 backdrop-blur-md px-2.5 py-1.5 rounded text-[10px] font-mono border border-[#1E2D4A] text-slate-300 pointer-events-none space-y-1">
-          {warperMode === 'svd' ? (
-            <>
-              <div className="flex items-center gap-1.5 text-cyber-cyan font-bold">
-                <span className="w-2 h-2 rounded-full border border-cyber-cyan bg-cyber-cyan/30" />
-                Unit Circle deforming into Ellipse
-              </div>
-              <div className="flex items-center gap-1.5 text-cyber-amber">
-                <span className="w-2.5 h-0.5 bg-cyber-amber inline-block" />
-                Semi-major axis σ₁ = {svd.singularValues[0].toFixed(2)}
-              </div>
-              <div className="flex items-center gap-1.5 text-cyber-violet">
-                <span className="w-2.5 h-0.5 bg-cyber-violet inline-block" />
-                Semi-minor axis σ₂ = {svd.singularValues[1].toFixed(2)}
-              </div>
-            </>
-          ) : (
-            <div className="flex items-center gap-2">
-              <span className="flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-[#10B981]" /> Basis î
-              </span>
-              <span className="flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-[#F59E0B]" /> Basis ĵ
-              </span>
-              <span className="flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-[#00F5D4]" /> Class 0
-              </span>
-              <span className="flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-[#FF2A85]" /> Class 1
-              </span>
-            </div>
-          )}
-        </div>
-
-        {/* Coordinate HUD */}
-        {hoverCoord && (
-          <div className="absolute bottom-2 left-2 bg-[#0E1524]/85 backdrop-blur-md px-2 py-0.5 rounded text-[10px] font-mono border border-[#1E2D4A] text-slate-300 pointer-events-none">
-            x: <span className="text-cyber-cyan">{hoverCoord.x.toFixed(2)}</span>, y:{' '}
-            <span className="text-cyber-cyan">{hoverCoord.y.toFixed(2)}</span>
-          </div>
-        )}
-
-        <div className="absolute bottom-2 right-2 bg-[#0E1524]/85 backdrop-blur-md px-2 py-0.5 rounded text-[9px] font-mono border border-[#1E2D4A] text-slate-400 pointer-events-none">
-          Click canvas to add point
-        </div>
-      </div>
-
-      {/* SVD LIVE KATEX MATRICES BANNER */}
-      {warperMode === 'svd' && (
-        <div className="mt-2.5 bg-[#0B101D] p-2.5 rounded-lg border border-[#1E2D4A] font-mono text-[11px] overflow-x-auto">
-          <div className="text-center">
-            <MathView
-              math={`W_1 = U \\cdot \\Sigma \\cdot V^T`}
-              block
-              className="text-xs text-cyber-amber font-bold mb-1"
-            />
-            <MathView
-              math={`\\begin{pmatrix} ${weights.W1[0][0].toFixed(2)} & ${weights.W1[0][1].toFixed(2)} \\\\ ${weights.W1[1][0].toFixed(2)} & ${weights.W1[1][1].toFixed(2)} \\end{pmatrix} = \\begin{pmatrix} ${svd.U[0][0].toFixed(2)} & ${svd.U[0][1].toFixed(2)} \\\\ ${svd.U[1][0].toFixed(2)} & ${svd.U[1][1].toFixed(2)} \\end{pmatrix} \\begin{pmatrix} ${svd.singularValues[0].toFixed(2)} & 0.00 \\\\ 0.00 & ${svd.singularValues[1].toFixed(2)} \\end{pmatrix} \\begin{pmatrix} ${svd.VT[0][0].toFixed(2)} & ${svd.VT[0][1].toFixed(2)} \\\\ ${svd.VT[1][0].toFixed(2)} & ${svd.VT[1][1].toFixed(2)} \\end{pmatrix}`}
-              block
-              className="text-xs text-slate-200"
-            />
-          </div>
-
-          <div className="grid grid-cols-3 gap-2 text-center text-[9px] mt-2 pt-2 border-t border-[#1E2D4A]">
-            <span
-              className={`p-1 rounded font-bold transition-all ${
-                tauSVD > 2.0 ? 'bg-cyber-magenta/20 text-cyber-magenta border border-cyber-magenta' : 'text-slate-400'
-              }`}
-            >
-              U: Output Rotation
-            </span>
-            <span
-              className={`p-1 rounded font-bold transition-all ${
-                tauSVD > 1.0 && tauSVD <= 2.0
-                  ? 'bg-cyber-amber/20 text-cyber-amber border border-cyber-amber'
-                  : 'text-slate-400'
-              }`}
-            >
-              Σ: Ellipse Semi-Axes (σ₁, σ₂)
-            </span>
-            <span
-              className={`p-1 rounded font-bold transition-all ${
-                tauSVD <= 1.0
-                  ? 'bg-cyber-violet/20 text-cyber-violet border border-cyber-violet'
-                  : 'text-slate-400'
-              }`}
-            >
-              Vᵀ: Input Rotation
-            </span>
-          </div>
+      {/* Coordinate Telemetry HUD (Bottom Left) */}
+      {hoverCoord && (
+        <div className="absolute bottom-6 left-6 pointer-events-none z-10 glass-pill px-3 py-1 rounded-full text-[10px] font-mono text-slate-300">
+          <span>x: <strong className="text-cyber-cyan tabular-nums">{hoverCoord.x.toFixed(2)}</strong></span>
+          <span className="mx-2 text-slate-600">|</span>
+          <span>y: <strong className="text-cyber-amber tabular-nums">{hoverCoord.y.toFixed(2)}</strong></span>
         </div>
       )}
-
-      {/* CONTROLS BAR: SVD 3-Stage Sub-Scrubber vs Homotopy Scrubber */}
-      <div className="mt-2.5 space-y-2 pt-2 border-t border-[#1E2D4A]/60">
-        {warperMode === 'svd' ? (
-          /* SVD 3-STAGE SUB-SCRUBBER */
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-xs font-mono">
-              <span className="text-slate-200 flex items-center gap-1.5 font-semibold">
-                <CircleDot className="w-3.5 h-3.5 text-cyber-amber" />
-                SVD 3-Stage Sub-Scrubber <span className="text-cyber-amber">τ_svd ∈ [0, 3]</span>:
-              </span>
-              <span className="text-cyber-amber font-bold bg-[#131B2E] px-2 py-0.5 rounded border border-[#2A374F]">
-                τ_svd = {tauSVD.toFixed(2)}
-              </span>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setIsPlayingSVD(!isPlayingSVD)}
-                className={`px-3 py-1.5 rounded-lg font-mono text-xs font-semibold flex items-center gap-1.5 transition-all ${
-                  isPlayingSVD
-                    ? 'bg-rose-500/20 text-rose-300 border border-rose-500'
-                    : 'bg-cyber-amber/20 text-cyber-amber border border-cyber-amber hover:bg-cyber-amber/30'
-                }`}
-              >
-                {isPlayingSVD ? (
-                  <>
-                    <Pause className="w-3.5 h-3.5" /> Pause SVD
-                  </>
-                ) : (
-                  <>
-                    <Play className="w-3.5 h-3.5" /> Animate SVD
-                  </>
-                )}
-              </button>
-
-              <input
-                type="range"
-                min="0"
-                max="3"
-                step="0.01"
-                value={tauSVD}
-                onChange={e => {
-                  setIsPlayingSVD(false);
-                  onChangeTauSVD(parseFloat(e.target.value));
-                }}
-                className="flex-1 slider-amber"
-              />
-
-              <button
-                onClick={() => {
-                  setIsPlayingSVD(false);
-                  onChangeTauSVD(0);
-                }}
-                className="p-1.5 rounded-lg bg-[#131B2E] hover:bg-[#1C2844] border border-[#1E2D4A] text-slate-300"
-                title="Reset to Unit Circle (τ_svd = 0)"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-              </button>
-            </div>
-
-            {/* SVD 3 Stage Presets */}
-            <div className="grid grid-cols-4 gap-1.5 text-[9px] font-mono text-center">
-              <button
-                onClick={() => {
-                  setIsPlayingSVD(false);
-                  onChangeTauSVD(0.0);
-                }}
-                className={`p-1.5 rounded border transition-colors ${
-                  tauSVD === 0.0
-                    ? 'border-cyber-cyan text-cyber-cyan bg-cyber-cyan/15 font-bold'
-                    : 'border-[#1E2D4A] text-slate-400 hover:text-white'
-                }`}
-              >
-                Stage 0: Unit Circle (I)
-              </button>
-              <button
-                onClick={() => {
-                  setIsPlayingSVD(false);
-                  onChangeTauSVD(1.0);
-                }}
-                className={`p-1.5 rounded border transition-colors ${
-                  tauSVD > 0.0 && tauSVD <= 1.0
-                    ? 'border-cyber-violet text-cyber-violet bg-cyber-violet/20 font-bold'
-                    : 'border-[#1E2D4A] text-slate-400 hover:text-white'
-                }`}
-              >
-                Stage 1: [0→1] Rotate Vᵀ
-              </button>
-              <button
-                onClick={() => {
-                  setIsPlayingSVD(false);
-                  onChangeTauSVD(2.0);
-                }}
-                className={`p-1.5 rounded border transition-colors ${
-                  tauSVD > 1.0 && tauSVD <= 2.0
-                    ? 'border-cyber-amber text-cyber-amber bg-cyber-amber/20 font-bold'
-                    : 'border-[#1E2D4A] text-slate-400 hover:text-white'
-                }`}
-              >
-                Stage 2: [1→2] Stretch Σ (Ellipse)
-              </button>
-              <button
-                onClick={() => {
-                  setIsPlayingSVD(false);
-                  onChangeTauSVD(3.0);
-                }}
-                className={`p-1.5 rounded border transition-colors ${
-                  tauSVD > 2.0
-                    ? 'border-cyber-magenta text-cyber-magenta bg-cyber-magenta/20 font-bold'
-                    : 'border-[#1E2D4A] text-slate-400 hover:text-white'
-                }`}
-              >
-                Stage 3: [2→3] Rotate U (W₁)
-              </button>
-            </div>
-          </div>
-        ) : (
-          /* NEURAL HOMOTOPY SCRUBBER */
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-xs font-mono">
-              <span className="text-slate-200 flex items-center gap-1.5 font-semibold">
-                Neural Homotopy Scrubber <span className="text-cyber-cyan">τ ∈ [0, 3]</span>:
-              </span>
-              <span className="text-cyber-cyan font-bold bg-[#131B2E] px-2 py-0.5 rounded border border-[#2A374F]">
-                τ = {tau.toFixed(2)}
-              </span>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setIsPlayingHomotopy(!isPlayingHomotopy)}
-                className={`px-3 py-1.5 rounded-lg font-mono text-xs font-semibold flex items-center gap-1.5 transition-all ${
-                  isPlayingHomotopy
-                    ? 'bg-rose-500/20 text-rose-300 border border-rose-500'
-                    : 'bg-cyber-cyan/15 text-cyber-cyan border border-cyber-cyan hover:bg-cyber-cyan/25'
-                }`}
-              >
-                {isPlayingHomotopy ? (
-                  <>
-                    <Pause className="w-3.5 h-3.5" /> Pause
-                  </>
-                ) : (
-                  <>
-                    <Play className="w-3.5 h-3.5" /> Play Folding
-                  </>
-                )}
-              </button>
-
-              <input
-                type="range"
-                min="0"
-                max="3"
-                step="0.01"
-                value={tau}
-                onChange={e => {
-                  setIsPlayingHomotopy(false);
-                  onChangeTau(parseFloat(e.target.value));
-                }}
-                className="flex-1"
-              />
-
-              <button
-                onClick={() => {
-                  setIsPlayingHomotopy(false);
-                  onChangeTau(0);
-                }}
-                className="p-1.5 rounded-lg bg-[#131B2E] hover:bg-[#1C2844] border border-[#1E2D4A] text-slate-300"
-                title="Reset to Input Space (τ = 0)"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-              </button>
-            </div>
-
-            {/* Phase Markers */}
-            <div className="grid grid-cols-3 gap-1 text-[9px] font-mono text-center pt-1 text-slate-400">
-              <div
-                onClick={() => {
-                  setIsPlayingHomotopy(false);
-                  onChangeTau(1.0);
-                }}
-                className={`cursor-pointer p-1 rounded border transition-colors ${
-                  tau <= 1.0
-                    ? 'border-cyber-cyan text-cyber-cyan bg-cyber-cyan/10 font-bold'
-                    : 'border-transparent hover:border-[#1E2D4A]'
-                }`}
-              >
-                [0 → 1] Affine Warp
-              </div>
-              <div
-                onClick={() => {
-                  setIsPlayingHomotopy(false);
-                  onChangeTau(2.0);
-                }}
-                className={`cursor-pointer p-1 rounded border transition-colors ${
-                  tau > 1.0 && tau <= 2.0
-                    ? 'border-cyber-magenta text-cyber-magenta bg-cyber-magenta/10 font-bold'
-                    : 'border-transparent hover:border-[#1E2D4A]'
-                }`}
-              >
-                [1 → 2] Non-Linear Fold
-              </div>
-              <div
-                onClick={() => {
-                  setIsPlayingHomotopy(false);
-                  onChangeTau(3.0);
-                }}
-                className={`cursor-pointer p-1 rounded border transition-colors ${
-                  tau > 2.0
-                    ? 'border-cyber-amber text-cyber-amber bg-cyber-amber/10 font-bold'
-                    : 'border-transparent hover:border-[#1E2D4A]'
-                }`}
-              >
-                [2 → 3] Hyperplane Cut
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
     </div>
   );
 };

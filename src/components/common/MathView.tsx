@@ -13,6 +13,7 @@ export const MathView: React.FC<MathViewProps> = ({ math, block = false, classNa
       return katex.renderToString(math, {
         displayMode: block,
         throwOnError: false,
+        output: 'html',
       });
     } catch (e) {
       return math;

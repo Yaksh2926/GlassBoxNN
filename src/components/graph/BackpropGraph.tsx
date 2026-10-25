@@ -7,9 +7,14 @@ import { GitBranch, AlertTriangle, CheckCircle, Info, Sparkles } from 'lucide-re
 interface BackpropGraphProps {
   weights: NetworkWeights;
   dataset: Point2D[];
+  className?: string;
 }
 
-export const BackpropGraph: React.FC<BackpropGraphProps> = ({ weights, dataset }) => {
+export const BackpropGraph: React.FC<BackpropGraphProps> = ({
+  weights,
+  dataset,
+  className = '',
+}) => {
   const [selectedSampleIndex, setSelectedSampleIndex] = useState<number>(0);
   const [hoveredWeight, setHoveredWeight] = useState<ChainRuleBreakdown['weightKey']>('W1_00');
 
@@ -29,7 +34,7 @@ export const BackpropGraph: React.FC<BackpropGraphProps> = ({ weights, dataset }
     weights.activation === 'relu' && z1_1_vals.every(v => v <= 0);
 
   return (
-    <div className="bg-[#0E1524] rounded-xl border border-[#1E2D4A] p-3 space-y-3 shadow-glass flex flex-col h-full">
+    <div className={`glass-hud rounded-2xl border border-white/[0.08] p-4 space-y-3 shadow-hud flex flex-col ${className}`}>
       {/* Header */}
       <div className="flex items-center justify-between border-b border-[#1E2D4A]/60 pb-2">
         <div className="flex items-center gap-1.5">
