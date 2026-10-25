@@ -13,6 +13,7 @@ import { RightSpectralInspector } from './components/docks/RightSpectralInspecto
 import { BottomTimelineDock } from './components/docks/BottomTimelineDock';
 import { ManifoldWarper2D } from './components/warper/ManifoldWarper2D';
 import { LossLandscapeView } from './components/loss/LossLandscapeView';
+import { MiniLossRadar } from './components/loss/MiniLossRadar';
 import { BackpropGraph } from './components/graph/BackpropGraph';
 import { MathGuideModal } from './components/common/MathGuideModal';
 import { SingularProofModal } from './components/common/SingularProofModal';
@@ -374,6 +375,17 @@ export function App() {
             </div>
           </div>
         </>
+      )}
+
+      {/* Interactive Picture-in-Picture Mini Loss Landscape Radar */}
+      {(viewMode === 'manifold' || viewMode === 'split') && (
+        <MiniLossRadar
+          dataset={dataset}
+          weights={weights}
+          onUpdateWeights={setWeights}
+          onExpand={() => setViewMode('loss')}
+          className="fixed bottom-24 right-4 lg:right-[366px] z-30"
+        />
       )}
 
       {/* 6. Left Floating Dock: Tactile Matrix & Dataset Studio */}

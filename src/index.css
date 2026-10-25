@@ -90,6 +90,35 @@ body {
   cursor: ew-resize;
 }
 
+/* Animated glowing particles flowing forward (cyan) & backward (magenta) */
+@keyframes flowForward {
+  from {
+    stroke-dashoffset: 48;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes flowBackward {
+  from {
+    stroke-dashoffset: 0;
+  }
+  to {
+    stroke-dashoffset: 48;
+  }
+}
+
+.flow-pulse-forward {
+  stroke-dasharray: 6, 18;
+  animation: flowForward 1.2s linear infinite;
+}
+
+.flow-pulse-backward {
+  stroke-dasharray: 6, 18;
+  animation: flowBackward 1.2s linear infinite;
+}
+
 /* Subtle glow effects */
 .glow-cyan-sm {
   box-shadow: 0 0 12px rgba(0, 245, 212, 0.3);
