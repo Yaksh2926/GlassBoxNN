@@ -7,7 +7,8 @@ import {
   Vector2D,
 } from './math/types';
 import { Datasets, DatasetPreset } from './math/datasets';
-import { TopCommandBar, ViewMode } from './components/docks/TopCommandBar';
+import { TopCommandBar, ViewMode, LabMode } from './components/docks/TopCommandBar';
+import { GuidedStudio } from './components/guided/GuidedStudio';
 import { LeftTactileStudio } from './components/docks/LeftTactileStudio';
 import { RightSpectralInspector } from './components/docks/RightSpectralInspector';
 import { BottomTimelineDock } from './components/docks/BottomTimelineDock';
@@ -20,14 +21,19 @@ import { SingularProofModal } from './components/common/SingularProofModal';
 import { TheoremToastHUD, TheoremToast } from './components/common/TheoremToastHUD';
 import { WhatJustHappenedPanel, OperationContextType } from './components/common/WhatJustHappenedPanel';
 import { DemoModeModal, DEMO_STEPS, DemoStep } from './components/story/DemoModeModal';
+import { JudgeDemoModal } from './components/story/JudgeDemoModal';
 import { LandingPage } from './components/landing/LandingPage';
 import { LinearAlgebra } from './math/linearAlgebra';
-import { NeuralEngine } from './math/neuralEngine';
+import { NeuralEngine, OptimizerState, createInitialOptimizerState } from './math/neuralEngine';
+import confetti from 'canvas-confetti';
 import { Maximize2, X, Sparkles, GraduationCap } from 'lucide-react';
 
 export function App() {
   // Navigation Screen: 'landing' | 'lab'
   const [currentScreen, setCurrentScreen] = useState<'landing' | 'lab'>('landing');
+
+  // Progressive Disclosure Lab Mode: 'guided' (Simple 3-Step) | 'advanced' (Full Mathematical Observatory)
+  const [labMode, setLabMode] = useState<LabMode>('guided');
 
   // View mode: 'geometry' | 'loss' | 'graph'
   const [viewMode, setViewMode] = useState<ViewMode>('geometry');
@@ -43,19 +49,27 @@ export function App() {
   const [isGuideOpen, setIsGuideOpen] = useState(false);
   const [isSingularProofOpen, setIsSingularProofOpen] = useState(false);
   const [isDemoOpen, setIsDemoOpen] = useState(false);
+  const [isJudgeDemoOpen, setIsJudgeDemoOpen] = useState(false);
   const [demoStepIndex, setDemoStepIndex] = useState(0);
   const [theoremToast, setTheoremToast] = useState<TheoremToast | null>(null);
 
-  // Panel Collapsible states
+  // Panel Collapsible states (Inspector collapsed by default in guided mode)
   const [isLeftPanelOpen, setIsLeftPanelOpen] = useState(true);
-  const [isRightPanelOpen, setIsRightPanelOpen] = useState(true);
+  const [isRightPanelOpen, setIsRightPanelOpen] = useState(false);
+
+  // Live Training Engine State (Shared between Guided Studio, Advanced Lab, and Judge Demo)
+  const [isTraining, setIsTraining] = useState<boolean>(false);
+  const [epoch, setEpoch] = useState<number>(0);
+  const optStateRef = useRef<OptimizerState>(createInitialOptimizerState());
+  const trainingAnimRef = useRef<number | null>(null);
+  const hasTriggeredConfetti = useRef<boolean>(false);
 
   // Point Selection state
   const [selectedPoint, setSelectedPoint] = useState<Point2D | null>(null);
 
-  // Dataset state
-  const [currentPreset, setCurrentPreset] = useState<DatasetPreset>('xor');
-  const [dataset, setDataset] = useState<Point2D[]>(() => Datasets.getPreset('xor'));
+  // Dataset state (Defaults to 'linear' for immediate success and clarity)
+  const [currentPreset, setCurrentPreset] = useState<DatasetPreset>('linear');
+  const [dataset, setDataset] = useState<Point2D[]>(() => Datasets.getPreset('linear'));
   const [activeClass, setActiveClass] = useState<0 | 1>(0);
 
   // Neural network parameters
@@ -134,8 +148,81 @@ export function App() {
     setLastChangedParam('Bias b₁');
   };
 
+  // Live Metrics
+  const currentLoss = dataset.length > 0 ? NeuralEngine.computeLoss(dataset, weights) : 0;
+  const currentAcc = dataset.length > 0 ? NeuralEngine.computeAccuracy(dataset, weights) : 0;
+
+  // Single Training Optimization Step
+  const executeTrainingStep = () => {
+    if (dataset.length === 0) return;
+    const currentGrads = NeuralEngine.computeGradients(dataset, weights);
+    const { updatedWeights, updatedState } = NeuralEngine.applyOptimizerStep(
+      weights,
+      currentGrads,
+      optStateRef.current,
+      optConfig
+    );
+    optStateRef.current = updatedState;
+    setWeights(updatedWeights);
+    setEpoch(prev => prev + 1);
+    setContextType('training_step');
+  };
+
+  // Continuous Training Loop
+  useEffect(() => {
+    if (!isTraining) {
+      if (trainingAnimRef.current !== null) {
+        cancelAnimationFrame(trainingAnimRef.current);
+        trainingAnimRef.current = null;
+      }
+      return;
+    }
+
+    const loop = () => {
+      // 2 sub-steps per animation frame for crisp, responsive 60fps convergence
+      for (let i = 0; i < 2; i++) {
+        executeTrainingStep();
+      }
+      trainingAnimRef.current = requestAnimationFrame(loop);
+    };
+
+    trainingAnimRef.current = requestAnimationFrame(loop);
+    return () => {
+      if (trainingAnimRef.current !== null) {
+        cancelAnimationFrame(trainingAnimRef.current);
+        trainingAnimRef.current = null;
+      }
+    };
+  }, [isTraining, weights, dataset, optConfig]);
+
+  // Confetti Celebration on 100% Convergence
+  useEffect(() => {
+    if (currentAcc === 1.0 && dataset.length >= 8 && !hasTriggeredConfetti.current) {
+      hasTriggeredConfetti.current = true;
+      confetti({
+        particleCount: 65,
+        spread: 75,
+        origin: { y: 0.6 },
+        colors: ['#53D4F4', '#F078C5', '#F7C76B', '#10B981'],
+      });
+    } else if (currentAcc < 0.95) {
+      hasTriggeredConfetti.current = false;
+    }
+  }, [currentAcc, dataset.length]);
+
+  const handleToggleTraining = () => {
+    setIsTraining(prev => !prev);
+  };
+
+  const handleStepOnce = () => {
+    executeTrainingStep();
+  };
+
   // Reset entire network
   const handleResetNetwork = () => {
+    setIsTraining(false);
+    setEpoch(0);
+    optStateRef.current = createInitialOptimizerState();
     setWeights({
       W1: [[1.0, 0.0], [0.0, 1.0]],
       b1: [0.0, 0.0],
@@ -149,9 +236,34 @@ export function App() {
     setContextType('idle');
   };
 
+  // Set initial unlearned weights for presentation (accuracy starts low at ~8%)
+  const handleSetInitialUnlearnedWeights = () => {
+    setIsTraining(false);
+    setEpoch(0);
+    optStateRef.current = createInitialOptimizerState();
+    setWeights({
+      W1: [[0.5, -0.2], [0.3, 0.4]],
+      b1: [0.0, 0.0],
+      W2: [0.5, -0.5],
+      b2: 0.0,
+      activation: 'relu',
+    });
+    setTau(0.0);
+    setTauSVD(0.0);
+    setSelectedPoint(null);
+    setContextType('idle');
+  };
+
+  // Transition from Guided Studio or Judge Demo to Advanced Lab
+  const handleTransitionToAdvancedLab = () => {
+    setLabMode('advanced');
+    setIsRightPanelOpen(true);
+    setViewMode('geometry');
+  };
+
   // Reset Everything to Defaults
   const handleResetAll = () => {
-    handleSelectPreset('xor');
+    handleSelectPreset('linear');
     handleResetNetwork();
     setViewMode('geometry');
     setWarperMode('homotopy');
@@ -258,10 +370,6 @@ export function App() {
   const isDeadReLUActive =
     weights.activation === 'relu' && weights.b1[0] < -2 && weights.b1[1] < -2;
 
-  // Live Metrics
-  const currentLoss = dataset.length > 0 ? NeuralEngine.computeLoss(dataset, weights) : 0;
-  const currentAcc = dataset.length > 0 ? NeuralEngine.computeAccuracy(dataset, weights) : 0;
-
   // IF ON LANDING PAGE: Render refined Landing Page
   if (currentScreen === 'landing') {
     return (
@@ -283,6 +391,15 @@ export function App() {
 
       {/* 2. Top Command Bar */}
       <TopCommandBar
+        labMode={labMode}
+        onSelectLabMode={mode => {
+          setLabMode(mode);
+          if (mode === 'advanced') {
+            setIsRightPanelOpen(true);
+          } else {
+            setIsRightPanelOpen(false);
+          }
+        }}
         viewMode={viewMode}
         onSelectViewMode={mode => {
           setViewMode(mode);
@@ -294,7 +411,7 @@ export function App() {
         onTogglePersonaMode={() =>
           setPersonaMode(p => (p === 'beginner' ? 'judge' : 'beginner'))
         }
-        onOpenDemo={() => setIsDemoOpen(true)}
+        onOpenDemo={() => setIsJudgeDemoOpen(true)}
         onOpenGuide={() => setIsGuideOpen(true)}
         onResetAll={handleResetAll}
         onGoHome={() => setCurrentScreen('landing')}
@@ -339,7 +456,7 @@ export function App() {
         </div>
       )}
 
-      {/* View Mode: 3D Loss Landscape & Contour Arena */}
+      {/* View Mode: 3D Loss Landscape & Contour Arena (in Advanced Lab) */}
       {viewMode === 'loss' && (
         <div className="fixed inset-0 w-screen h-screen pt-16 pb-20 px-6 z-20 flex items-center justify-center">
           <LossLandscapeView
@@ -360,7 +477,7 @@ export function App() {
         </div>
       )}
 
-      {/* View Mode: Backprop Graph (Silicon Autodiff Flow) */}
+      {/* View Mode: Backprop Graph (Silicon Autodiff Flow in Advanced Lab) */}
       {viewMode === 'graph' && (
         <div className="fixed inset-0 w-screen h-screen pt-16 pb-20 px-6 z-20 flex items-center justify-center">
           <BackpropGraph
@@ -371,8 +488,8 @@ export function App() {
         </div>
       )}
 
-      {/* Interactive Picture-in-Picture Mini Loss Landscape Radar (Visible in Geometry Mode) */}
-      {viewMode === 'geometry' && (
+      {/* Interactive Picture-in-Picture Mini Loss Landscape Radar (Visible in Geometry Mode in Advanced Lab) */}
+      {labMode === 'advanced' && viewMode === 'geometry' && (
         <MiniLossRadar
           dataset={dataset}
           weights={weights}
@@ -385,34 +502,63 @@ export function App() {
         />
       )}
 
-      {/* 5. Left Floating Dock: Tactile Matrix & Dataset Studio */}
-      <LeftTactileStudio
-        W1={weights.W1}
-        b1={weights.b1}
-        onChangeW1={handleUpdateW1}
-        onChangeB1={handleUpdateB1}
-        currentPreset={currentPreset}
-        onSelectPreset={handleSelectPreset}
-        dataset={dataset}
-        activeClass={activeClass}
-        onSetActiveClass={setActiveClass}
-        onUndoPoint={handleUndoPoint}
-        onClearDataset={handleClearDataset}
-        weights={weights}
-        onUpdateWeights={newW => {
-          setWeights(newW);
-          setContextType('training_step');
-        }}
-        optConfig={optConfig}
-        onChangeOptConfig={setOptConfig}
-        onTriggerSingularMatrix={handleTriggerSingularMatrix}
-        onTriggerDeadReLU={handleTriggerDeadReLU}
-        onOpenSingularProof={() => setIsSingularProofOpen(true)}
-        isSingularActive={isSingularActive}
-        isDeadReLUActive={isDeadReLUActive}
-        isCollapsed={!isLeftPanelOpen}
-        onToggleCollapse={() => setIsLeftPanelOpen(!isLeftPanelOpen)}
-      />
+      {/* 5. Left Floating Dock: Mode-Aware Controls (Guided Studio or Tactile Advanced Lab) */}
+      {labMode === 'guided' ? (
+        isLeftPanelOpen && (
+          <GuidedStudio
+            currentPreset={currentPreset}
+            onSelectPreset={handleSelectPreset}
+            dataset={dataset}
+            weights={weights}
+            onUpdateWeights={newW => {
+              setWeights(newW);
+              setContextType('training_step');
+            }}
+            isTraining={isTraining}
+            onToggleTraining={handleToggleTraining}
+            onStepOnce={handleStepOnce}
+            onResetModel={handleResetNetwork}
+            epoch={epoch}
+            loss={currentLoss}
+            accuracy={currentAcc}
+            onOpenAdvancedLab={handleTransitionToAdvancedLab}
+            onLaunchJudgeDemo={() => setIsJudgeDemoOpen(true)}
+          />
+        )
+      ) : (
+        <LeftTactileStudio
+          W1={weights.W1}
+          b1={weights.b1}
+          onChangeW1={handleUpdateW1}
+          onChangeB1={handleUpdateB1}
+          currentPreset={currentPreset}
+          onSelectPreset={handleSelectPreset}
+          dataset={dataset}
+          activeClass={activeClass}
+          onSetActiveClass={setActiveClass}
+          onUndoPoint={handleUndoPoint}
+          onClearDataset={handleClearDataset}
+          weights={weights}
+          onUpdateWeights={newW => {
+            setWeights(newW);
+            setContextType('training_step');
+          }}
+          optConfig={optConfig}
+          onChangeOptConfig={setOptConfig}
+          onTriggerSingularMatrix={handleTriggerSingularMatrix}
+          onTriggerDeadReLU={handleTriggerDeadReLU}
+          onOpenSingularProof={() => setIsSingularProofOpen(true)}
+          isSingularActive={isSingularActive}
+          isDeadReLUActive={isDeadReLUActive}
+          isCollapsed={!isLeftPanelOpen}
+          onToggleCollapse={() => setIsLeftPanelOpen(!isLeftPanelOpen)}
+          isTraining={isTraining}
+          onToggleTraining={handleToggleTraining}
+          epoch={epoch}
+          onStepOnce={handleStepOnce}
+          onResetModel={handleResetNetwork}
+        />
+      )}
 
       {/* 6. Right Floating Dock: Visual Spectral & SVD Inspector */}
       <RightSpectralInspector
@@ -428,8 +574,8 @@ export function App() {
         onToggleCollapse={() => setIsRightPanelOpen(!isRightPanelOpen)}
       />
 
-      {/* 7. Bottom Center: DaVinci-Style Homotopy Scrubber */}
-      {viewMode === 'geometry' && (
+      {/* 7. Bottom Center: DaVinci-Style Homotopy Scrubber (Visible in Advanced Lab Geometry mode) */}
+      {labMode === 'advanced' && viewMode === 'geometry' && (
         <BottomTimelineDock
           tau={tau}
           onChangeTau={updater => {
@@ -457,7 +603,24 @@ export function App() {
         />
       </div>
 
-      {/* 9. Presentation-Ready Demo Mode Modal */}
+      {/* 9. Presentation-Ready Ideathon Judge Demo Modal */}
+      <JudgeDemoModal
+        isOpen={isJudgeDemoOpen}
+        onClose={() => setIsJudgeDemoOpen(false)}
+        dataset={dataset}
+        weights={weights}
+        loss={currentLoss}
+        accuracy={currentAcc}
+        epoch={epoch}
+        isTraining={isTraining}
+        onToggleTraining={handleToggleTraining}
+        onResetTraining={handleResetNetwork}
+        onSelectPreset={handleSelectPreset}
+        onSetInitialUnlearnedWeights={handleSetInitialUnlearnedWeights}
+        onTransitionToAdvancedLab={handleTransitionToAdvancedLab}
+      />
+
+      {/* 10. Secondary Deep Storytelling Demo Mode Modal */}
       <DemoModeModal
         isOpen={isDemoOpen}
         onClose={() => setIsDemoOpen(false)}
@@ -467,7 +630,7 @@ export function App() {
         personaMode={personaMode}
       />
 
-      {/* 10. Educational Handbooks & Proof Modals */}
+      {/* 11. Educational Handbooks & Proof Modals */}
       <MathGuideModal isOpen={isGuideOpen} onClose={() => setIsGuideOpen(false)} />
       <SingularProofModal
         isOpen={isSingularProofOpen}

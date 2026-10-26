@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { LinearAlgebra } from '../linearAlgebra';
 import { Activations } from '../activations';
-import { NeuralEngine } from '../neuralEngine';
+import { NeuralEngine, createInitialOptimizerState } from '../neuralEngine';
 import { LossLandscape } from '../lossLandscape';
 import { Datasets } from '../datasets';
 import { Matrix2x2, NetworkWeights, Point2D } from '../types';
@@ -172,3 +172,57 @@ describe('Loss Landscape & Hessian', () => {
     expect(['bowl', 'peak', 'saddle', 'flat']).toContain(hessian.curvatureType);
   });
 });
+
+describe('Guided Studio & Presentation Presets', () => {
+  it('provides valid Easy Linear and Challenge XOR presets with two classes', () => {
+    const linearData = Datasets.getPreset('linear');
+    expect(linearData.length).toBeGreaterThan(0);
+    const classesLinear = new Set(linearData.map(p => p.label));
+    expect(classesLinear.has(0)).toBe(true);
+    expect(classesLinear.has(1)).toBe(true);
+
+    const xorData = Datasets.getPreset('xor');
+    expect(xorData.length).toBeGreaterThan(0);
+    const classesXOR = new Set(xorData.map(p => p.label));
+    expect(classesXOR.has(0)).toBe(true);
+    expect(classesXOR.has(1)).toBe(true);
+  });
+
+  it('reliably converges on the Easy Linear dataset within 20 epochs', () => {
+    const linearData = Datasets.getPreset('linear');
+    let weights: NetworkWeights = {
+      W1: [[0.5, -0.2], [0.3, 0.4]],
+      b1: [0.0, 0.0],
+      W2: [0.5, -0.5],
+      b2: 0.0,
+      activation: 'relu',
+    };
+
+    let optState = createInitialOptimizerState();
+
+    const optConfig = {
+      type: 'adam' as const,
+      learningRate: 0.1,
+      momentumGamma: 0.85,
+      beta1: 0.9,
+      beta2: 0.999,
+    };
+
+    const initialAcc = NeuralEngine.computeAccuracy(linearData, weights);
+    expect(initialAcc).toBeLessThan(0.3); // Starts poorly separated
+
+    for (let i = 0; i < 20; i++) {
+      const grads = NeuralEngine.computeGradients(linearData, weights);
+      const step = NeuralEngine.applyOptimizerStep(weights, grads, optState, optConfig);
+      weights = step.updatedWeights;
+      optState = step.updatedState;
+    }
+
+    const finalAcc = NeuralEngine.computeAccuracy(linearData, weights);
+    const finalLoss = NeuralEngine.computeLoss(linearData, weights);
+
+    expect(finalAcc).toBe(1.0); // Reaches 100% accuracy!
+    expect(finalLoss).toBeLessThan(0.15); // Loss decreases significantly
+  });
+});
+

@@ -48,6 +48,11 @@ interface LeftTactileStudioProps {
   isDeadReLUActive: boolean;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
+  isTraining?: boolean;
+  onToggleTraining?: () => void;
+  epoch?: number;
+  onStepOnce?: () => void;
+  onResetModel?: () => void;
 }
 
 export const LeftTactileStudio: React.FC<LeftTactileStudioProps> = ({
@@ -73,12 +78,19 @@ export const LeftTactileStudio: React.FC<LeftTactileStudioProps> = ({
   isDeadReLUActive,
   isCollapsed = false,
   onToggleCollapse,
+  isTraining: externalIsTraining,
+  onToggleTraining: externalToggleTraining,
+  epoch: externalEpoch,
+  onStepOnce: externalStepOnce,
+  onResetModel: externalResetModel,
 }) => {
   const [internalCollapsed, setInternalCollapsed] = useState(false);
-  const [isTraining, setIsTraining] = useState(false);
-  const [epoch, setEpoch] = useState(0);
+  const [internalIsTraining, setInternalIsTraining] = useState(false);
+  const [internalEpoch, setInternalEpoch] = useState(0);
   const optStateRef = React.useRef<OptimizerState>(createInitialOptimizerState());
 
+  const isTraining = externalIsTraining !== undefined ? externalIsTraining : internalIsTraining;
+  const epoch = externalEpoch !== undefined ? externalEpoch : internalEpoch;
   const collapsed = isCollapsed || internalCollapsed;
 
   // Compute live forward metrics
@@ -97,12 +109,13 @@ export const LeftTactileStudio: React.FC<LeftTactileStudioProps> = ({
     );
     optStateRef.current = updatedState;
     onUpdateWeights(updatedWeights);
-    setEpoch(e => e + 1);
+    setInternalEpoch(e => e + 1);
   }, [dataset, weights, optConfig, onUpdateWeights]);
 
-  // Real continuous training loop
+  // Real continuous training loop (only active if training state is managed internally)
   React.useEffect(() => {
-    if (!isTraining) return;
+    if (externalIsTraining !== undefined) return; // Managed by App
+    if (!internalIsTraining) return;
 
     let animId: number;
     let lastTime = performance.now();
@@ -117,22 +130,38 @@ export const LeftTactileStudio: React.FC<LeftTactileStudioProps> = ({
 
     animId = requestAnimationFrame(trainLoop);
     return () => cancelAnimationFrame(animId);
-  }, [isTraining, executeStep]);
+  }, [internalIsTraining, externalIsTraining, executeStep]);
 
   const handleStepOnce = () => {
-    executeStep();
+    if (externalStepOnce) {
+      externalStepOnce();
+    } else {
+      executeStep();
+    }
+  };
+
+  const handleToggleTraining = () => {
+    if (externalToggleTraining) {
+      externalToggleTraining();
+    } else {
+      setInternalIsTraining(t => !t);
+    }
   };
 
   const handleResetWeights = () => {
-    setIsTraining(false);
-    setEpoch(0);
-    onUpdateWeights({
-      W1: [[1.0, 0.0], [0.0, 1.0]],
-      b1: [0.0, 0.0],
-      W2: [1.0, -1.0],
-      b2: 0.0,
-      activation: 'relu',
-    });
+    if (externalResetModel) {
+      externalResetModel();
+    } else {
+      setInternalIsTraining(false);
+      setInternalEpoch(0);
+      onUpdateWeights({
+        W1: [[1.0, 0.0], [0.0, 1.0]],
+        b1: [0.0, 0.0],
+        W2: [1.0, -1.0],
+        b2: 0.0,
+        activation: 'relu',
+      });
+    }
   };
 
   const updateW1 = (row: 0 | 1, col: 0 | 1, val: number) => {
@@ -455,7 +484,7 @@ export const LeftTactileStudio: React.FC<LeftTactileStudioProps> = ({
             {/* Training Action Buttons */}
             <div className="flex items-center gap-1.5 pt-1">
               <button
-                onClick={() => setIsTraining(!isTraining)}
+                onClick={handleToggleTraining}
                 className={`flex-1 py-1.5 rounded-lg font-mono text-xs font-semibold transition-all flex items-center justify-center gap-1.5 ${
                   isTraining
                     ? 'bg-[#F7C76B] text-[#0B1020] hover:bg-[#ebd07a]'
