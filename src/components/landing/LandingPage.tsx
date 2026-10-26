@@ -126,7 +126,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterLab }) => {
   const det = previewW11 * previewW22 - 0.3 * -0.2;
 
   return (
-    <div className="w-full min-h-screen bg-[#0B1020] text-[#F4F7FB] selection:bg-[#53D4F4] selection:text-black">
+    <div className="w-full min-h-screen bg-[#0B1020] text-[#F4F7FB] selection:bg-[#53D4F4] selection:text-black select-text">
       {/* Top Editorial Navigation */}
       <header className="sticky top-0 z-40 w-full border-b border-[#29374B] bg-[#0B1020]/95 backdrop-blur-md">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
