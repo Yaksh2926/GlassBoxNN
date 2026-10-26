@@ -2,30 +2,19 @@ import React, { useState, useRef, useEffect } from 'react';
 import {
   Compass,
   ArrowRight,
-  BookOpen,
   Layers,
-  Activity,
-  TrendingDown,
-  Sparkles,
   GitBranch,
-  Sliders,
-  ChevronRight,
-  Cpu,
+  TrendingDown,
 } from 'lucide-react';
 import { Datasets } from '../../math/datasets';
-import { LinearAlgebra } from '../../math/linearAlgebra';
-import { Activations } from '../../math/activations';
 
 interface LandingPageProps {
   onEnterLab: () => void;
-  onExploreMath: () => void;
+  onExploreMath?: () => void;
 }
 
-export const LandingPage: React.FC<LandingPageProps> = ({
-  onEnterLab,
-  onExploreMath,
-}) => {
-  // Mini interactive preview state on landing page
+export const LandingPage: React.FC<LandingPageProps> = ({ onEnterLab }) => {
+  // Mini interactive preview state
   const [previewW11, setPreviewW11] = useState<number>(1.2);
   const [previewW22, setPreviewW22] = useState<number>(1.0);
   const [previewTau, setPreviewTau] = useState<number>(0.5);
@@ -58,10 +47,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
     // Map point with affine & fold
     const map = (x: number, y: number): [number, number] => {
-      // Linear deformation
       const zx = previewW11 * x + 0.3 * y;
       const zy = -0.2 * x + previewW22 * y;
-      // Homotopy interpolation
       const ix = (1 - previewTau) * x + previewTau * zx;
       const iy = (1 - previewTau) * y + previewTau * zy;
       return [cx + ix * scale, cy - iy * scale];
@@ -71,7 +58,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     ctx.lineWidth = 0.75;
     ctx.strokeStyle = '#182438';
     for (let g = -4; g <= 4; g += 0.5) {
-      // Horizontal
       ctx.beginPath();
       for (let s = -4; s <= 4; s += 0.25) {
         const [sx, sy] = map(s, g);
@@ -80,7 +66,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       }
       ctx.stroke();
 
-      // Vertical
       ctx.beginPath();
       for (let s = -4; s <= 4; s += 0.25) {
         const [sx, sy] = map(g, s);
@@ -138,56 +123,42 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     }
   }, [previewW11, previewW22, previewTau]);
 
-  const det = previewW11 * previewW22 - (0.3 * -0.2);
+  const det = previewW11 * previewW22 - 0.3 * -0.2;
 
   return (
-    <div className="min-h-screen w-full bg-[#0B1020] text-[#F4F7FB] selection:bg-[#53D4F4] selection:text-black overflow-y-auto">
+    <div className="w-full min-h-screen bg-[#0B1020] text-[#F4F7FB] selection:bg-[#53D4F4] selection:text-black">
       {/* Top Editorial Navigation */}
-      <header className="sticky top-0 z-40 w-full border-b border-[#29374B] bg-[#0B1020]/90 backdrop-blur-md">
+      <header className="sticky top-0 z-40 w-full border-b border-[#29374B] bg-[#0B1020]/95 backdrop-blur-md">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-[#111A2A] border border-[#29374B] flex items-center justify-center text-[#53D4F4]">
               <Compass className="w-4 h-4" />
             </div>
-            <div>
+            <div className="flex items-center gap-2">
               <span className="font-semibold text-sm tracking-tight text-[#F4F7FB]">
                 GlassBox NN
               </span>
-              <span className="ml-2 text-[10px] font-mono text-[#9DAFC3] px-2 py-0.5 rounded bg-[#182438] border border-[#29374B]">
+              <span className="text-[10px] font-mono text-[#9DAFC3] px-2 py-0.5 rounded bg-[#182438] border border-[#29374B]">
                 MathX GTBIT
               </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
-            <button
-              onClick={onExploreMath}
-              className="hidden sm:flex items-center gap-1.5 text-xs font-medium text-[#9DAFC3] hover:text-[#F4F7FB] transition-colors py-1.5 px-3 rounded-md hover:bg-[#182438]"
-            >
-              <BookOpen className="w-3.5 h-3.5" />
-              <span>Explore the Math</span>
-            </button>
-            <button
-              onClick={onEnterLab}
-              className="flex items-center gap-2 text-xs font-semibold bg-[#53D4F4] text-[#0B1020] px-4 py-2 rounded-lg hover:bg-[#68ddfc] transition-all shadow-sm active:scale-95"
-            >
-              <span>Enter the Lab</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
+          <button
+            onClick={onEnterLab}
+            className="flex items-center gap-2 text-xs font-semibold bg-[#53D4F4] text-[#0B1020] px-4 py-2 rounded-lg hover:bg-[#68ddfc] transition-all shadow-sm active:scale-95"
+          >
+            <span>Enter the Lab</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
         </div>
       </header>
 
       {/* Hero Section */}
-      <main className="max-w-6xl mx-auto px-6 pt-16 pb-20">
+      <main className="max-w-6xl mx-auto px-6 pt-16 pb-24">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
-          {/* Left Column: Editorial Headline & Actions */}
+          {/* Left Column: Editorial Headline & Single Prominent CTA */}
           <div className="lg:col-span-7 space-y-6">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-mono bg-[#111A2A] border border-[#29374B] text-[#9DAFC3]">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#53D4F4] animate-pulse" />
-              <span>Mathematical Observatory for Neural Networks</span>
-            </div>
-
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-[#F4F7FB] leading-[1.1]">
               See the Math <br />
               <span className="text-[#53D4F4]">Behind AI.</span>
@@ -198,53 +169,24 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               through real-time differential geometry, linear algebra, and multivariable calculus.
             </p>
 
-            <div className="flex flex-wrap items-center gap-4 pt-2">
+            <div className="pt-2">
               <button
                 onClick={onEnterLab}
-                className="flex items-center gap-2.5 text-sm font-semibold bg-[#53D4F4] text-[#0B1020] px-6 py-3 rounded-xl hover:bg-[#68ddfc] transition-all shadow-md active:scale-95"
+                className="inline-flex items-center gap-2.5 text-sm font-semibold bg-[#53D4F4] text-[#0B1020] px-6 py-3.5 rounded-xl hover:bg-[#68ddfc] transition-all shadow-md active:scale-95"
               >
                 <span>Enter the Lab Workspace</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
-
-              <button
-                onClick={onExploreMath}
-                className="flex items-center gap-2 text-sm font-medium text-[#F4F7FB] bg-[#111A2A] border border-[#29374B] hover:border-[#53D4F4]/50 px-5 py-3 rounded-xl hover:bg-[#182438] transition-all"
-              >
-                <BookOpen className="w-4 h-4 text-[#53D4F4]" />
-                <span>Mathematical Handbook</span>
-              </button>
-            </div>
-
-            {/* Quick Proof Points */}
-            <div className="grid grid-cols-3 gap-4 pt-6 border-t border-[#29374B]/70 max-w-lg">
-              <div>
-                <span className="block text-xl font-bold font-mono text-[#F4F7FB]">60 FPS</span>
-                <span className="text-xs text-[#9DAFC3]">Continuous Homotopy</span>
-              </div>
-              <div>
-                <span className="block text-xl font-bold font-mono text-[#53D4F4]">100% Exact</span>
-                <span className="text-xs text-[#9DAFC3]">Zero Blackbox Autodiff</span>
-              </div>
-              <div>
-                <span className="block text-xl font-bold font-mono text-[#F078C5]">Cover's Thm</span>
-                <span className="text-xs text-[#9DAFC3]">Topological Space Fold</span>
-              </div>
             </div>
           </div>
 
-          {/* Right Column: Compact Live Mathematical Preview */}
+          {/* Right Column: Live Mathematical Preview Card */}
           <div className="lg:col-span-5">
             <div className="rounded-2xl border border-[#29374B] bg-[#111A2A] p-5 shadow-xl">
               <div className="flex items-center justify-between pb-3 mb-3 border-b border-[#29374B]">
-                <div className="flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-full bg-[#EF4444]/80" />
-                  <div className="w-2.5 h-2.5 rounded-full bg-[#F7C76B]/80" />
-                  <div className="w-2.5 h-2.5 rounded-full bg-[#10B981]/80" />
-                  <span className="text-xs font-mono text-[#9DAFC3] ml-2">
-                    Live R² Manifold Preview
-                  </span>
-                </div>
+                <span className="text-xs font-mono text-[#9DAFC3]">
+                  Live ℝ² Manifold Preview
+                </span>
                 <span className="text-[11px] font-mono text-[#53D4F4] bg-[#182438] px-2 py-0.5 rounded border border-[#29374B]">
                   det(W₁) = {det.toFixed(2)}
                 </span>
@@ -290,118 +232,64 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   className="w-full h-1 bg-[#182438] rounded-lg appearance-none cursor-pointer accent-[#F7C76B]"
                 />
               </div>
-
-              <div className="mt-4 pt-3 border-t border-[#29374B] flex items-center justify-between">
-                <span className="text-xs text-[#9DAFC3]">Try the full interactive lab:</span>
-                <button
-                  onClick={onEnterLab}
-                  className="text-xs font-semibold text-[#53D4F4] hover:underline flex items-center gap-1"
-                >
-                  <span>Launch Workspace</span>
-                  <ChevronRight className="w-3 h-3" />
-                </button>
-              </div>
             </div>
           </div>
         </div>
 
-        {/* Feature Highlights Section */}
-        <section className="mt-28">
-          <div className="text-center max-w-2xl mx-auto space-y-3 mb-12">
-            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#F4F7FB]">
-              Three Pillars of Geometric Deep Learning
+        {/* Three Core Mathematical Pillars */}
+        <section className="mt-20 pt-16 border-t border-[#29374B]/60">
+          <div className="text-center max-w-xl mx-auto space-y-2 mb-10">
+            <h2 className="text-2xl font-bold tracking-tight text-[#F4F7FB]">
+              Three Mathematical Pillars
             </h2>
-            <p className="text-sm text-[#9DAFC3]">
-              Every layer, parameter, and derivative is rendered as transparent mathematical morphology.
+            <p className="text-xs text-[#9DAFC3]">
+              Every layer, parameter, and derivative rendered as transparent geometry.
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Feature 1: Transformations */}
-            <div className="rounded-xl border border-[#29374B] bg-[#111A2A] p-6 space-y-4 hover:border-[#53D4F4]/50 transition-colors">
-              <div className="w-10 h-10 rounded-lg bg-[#182438] border border-[#29374B] flex items-center justify-center text-[#53D4F4]">
-                <Layers className="w-5 h-5" />
+            {/* Pillar 1: Transformations */}
+            <div className="rounded-xl border border-[#29374B] bg-[#111A2A] p-6 space-y-3 hover:border-[#53D4F4]/50 transition-colors">
+              <div className="w-9 h-9 rounded-lg bg-[#182438] border border-[#29374B] flex items-center justify-center text-[#53D4F4]">
+                <Layers className="w-4 h-4" />
               </div>
-              <h3 className="text-lg font-semibold text-[#F4F7FB]">1. Transformations</h3>
+              <h3 className="text-base font-semibold text-[#F4F7FB]">1. Transformations</h3>
               <p className="text-xs text-[#9DAFC3] leading-relaxed">
-                Observe linear maps $z_1 = W_1 x + b_1$ continuously shearing, rotating, and scaling the Cartesian grid.
-                Inspect the 4-stage Singular Value Decomposition ($W_1 = U \Sigma V^T$) and watch non-linear activations
-                crease the space to solve non-linearly separable problems like XOR.
+                Linear maps continuously shear, rotate, and scale coordinates. Inspect 4-stage SVD
+                and watch non-linear activations fold space to solve XOR.
               </p>
-              <div className="pt-2 text-[11px] font-mono text-[#53D4F4]">
-                <span>SVD • Determinants • Cover's Theorem</span>
-              </div>
             </div>
 
-            {/* Feature 2: Learning */}
-            <div className="rounded-xl border border-[#29374B] bg-[#111A2A] p-6 space-y-4 hover:border-[#F078C5]/50 transition-colors">
-              <div className="w-10 h-10 rounded-lg bg-[#182438] border border-[#29374B] flex items-center justify-center text-[#F078C5]">
-                <GitBranch className="w-5 h-5" />
+            {/* Pillar 2: Learning */}
+            <div className="rounded-xl border border-[#29374B] bg-[#111A2A] p-6 space-y-3 hover:border-[#F078C5]/50 transition-colors">
+              <div className="w-9 h-9 rounded-lg bg-[#182438] border border-[#29374B] flex items-center justify-center text-[#F078C5]">
+                <GitBranch className="w-4 h-4" />
               </div>
-              <h3 className="text-lg font-semibold text-[#F4F7FB]">2. Learning</h3>
+              <h3 className="text-base font-semibold text-[#F4F7FB]">2. Learning</h3>
               <p className="text-xs text-[#9DAFC3] leading-relaxed">
                 Deconstruct automatic differentiation through exact multivariable calculus.
-                Hover over weight connections on the hardware silicon graph to view the symbolic chain rule product
-                with live numerical factors, and observe how Dead ReLUs extinguish gradient flow.
+                Inspect the chain rule product with live numerical factors and Dead ReLU detection.
               </p>
-              <div className="pt-2 text-[11px] font-mono text-[#F078C5]">
-                <span>Analytical Chain Rule • Gradient Check</span>
-              </div>
             </div>
 
-            {/* Feature 3: Optimization */}
-            <div className="rounded-xl border border-[#29374B] bg-[#111A2A] p-6 space-y-4 hover:border-[#F7C76B]/50 transition-colors">
-              <div className="w-10 h-10 rounded-lg bg-[#182438] border border-[#29374B] flex items-center justify-center text-[#F7C76B]">
-                <TrendingDown className="w-5 h-5" />
+            {/* Pillar 3: Optimization */}
+            <div className="rounded-xl border border-[#29374B] bg-[#111A2A] p-6 space-y-3 hover:border-[#F7C76B]/50 transition-colors">
+              <div className="w-9 h-9 rounded-lg bg-[#182438] border border-[#29374B] flex items-center justify-center text-[#F7C76B]">
+                <TrendingDown className="w-4 h-4" />
               </div>
-              <h3 className="text-lg font-semibold text-[#F4F7FB]">3. Optimization</h3>
+              <h3 className="text-base font-semibold text-[#F4F7FB]">3. Optimization</h3>
               <p className="text-xs text-[#9DAFC3] leading-relaxed">
-                Explore the true Binary Cross-Entropy loss surface in 3D WebGL and 2D contour maps.
-                Calculate 2×2 Hessian curvature matrices ∇²L and race Vanilla SGD,
-                Polyak's Heavy Ball Momentum, and Adam across ill-conditioned parameter ravines.
+                Explore the true BCE loss surface in 3D WebGL and 2D contour maps.
+                Calculate 2×2 Hessian curvature matrices and race SGD, Momentum, and Adam.
               </p>
-              <div className="pt-2 text-[11px] font-mono text-[#F7C76B]">
-                <span>Hessian Curvature • 3-Optimizer Race</span>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Why Visual Mathematics Matters Section */}
-        <section className="mt-24 rounded-2xl border border-[#29374B] bg-[#111A2A] p-8 lg:p-12">
-          <div className="max-w-3xl space-y-4">
-            <span className="text-xs font-mono uppercase tracking-wider text-[#53D4F4]">
-              Educational Philosophy
-            </span>
-            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#F4F7FB]">
-              Why Visual Mathematical Exploration Matters
-            </h2>
-            <p className="text-sm text-[#9DAFC3] leading-relaxed">
-              In conventional deep learning education, neural networks are taught either as abstract syntax
-              or as mysterious "black boxes" of millions of opaque numbers. Students miss the foundational insight:
-              <strong> a neural network is simply a sequence of coordinate transformations that un-tangles complex geometry.</strong>
-            </p>
-            <p className="text-sm text-[#9DAFC3] leading-relaxed">
-              By constraining our domain to two-dimensional Cartesian space, GlassBox NN reveals the physical reality
-              of matrix eigenvalues, rank collapse via the Rank-Nullity Theorem, and gradient extinction without
-              abstract approximations.
-            </p>
-            <div className="pt-4">
-              <button
-                onClick={onEnterLab}
-                className="inline-flex items-center gap-2 text-sm font-semibold bg-[#53D4F4] text-[#0B1020] px-5 py-2.5 rounded-lg hover:bg-[#68ddfc] transition-all"
-              >
-                <span>Launch the Observatory</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
             </div>
           </div>
         </section>
       </main>
 
       {/* Subtle MathX Footer */}
-      <footer className="border-t border-[#29374B] bg-[#0B1020] py-8 text-center text-xs text-[#9DAFC3]">
-        <div className="max-w-6xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <footer className="border-t border-[#29374B] bg-[#0B1020] py-6 text-center text-xs text-[#9DAFC3]">
+        <div className="max-w-6xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <span className="font-semibold text-[#F4F7FB]">GlassBox NN</span>
             <span>—</span>

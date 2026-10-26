@@ -6,12 +6,13 @@
   color-scheme: dark;
 }
 
-body {
+html, body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   background-color: #0B1020;
   color: #F4F7FB;
-  overflow: hidden;
-  user-select: none;
+  min-height: 100%;
+  margin: 0;
+  padding: 0;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
