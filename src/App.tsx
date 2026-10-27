@@ -10,6 +10,7 @@ import { Datasets, DatasetPreset } from './math/datasets';
 import { TopCommandBar } from './components/docks/TopCommandBar';
 import { SimpleStudio } from './components/studio/SimpleStudio';
 import { ManifoldWarper2D } from './components/warper/ManifoldWarper2D';
+import { LossLandscapeView } from './components/loss/LossLandscapeView';
 import { MathGuideModal } from './components/common/MathGuideModal';
 import { SingularProofModal } from './components/common/SingularProofModal';
 import { TheoremToastHUD, TheoremToast } from './components/common/TheoremToastHUD';
@@ -19,6 +20,9 @@ import { NeuralEngine, OptimizerState, createInitialOptimizerState } from './mat
 import confetti from 'canvas-confetti';
 
 export function App() {
+  // View mode: 'geometry' (2D Grid & Fence) | 'loss' (3D Mistake Valley)
+  const [viewMode, setViewMode] = useState<'geometry' | 'loss'>('geometry');
+
   // Dual persona: 'beginner' (Default Intuition Mode) | 'judge' (Full Math View)
   const [personaMode, setPersonaMode] = useState<'beginner' | 'judge'>('beginner');
 
@@ -303,8 +307,10 @@ export function App() {
 
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-[#0B1020] text-[#F4F7FB] select-none font-sans">
-      {/* 1. Sleek Top Navigation Bar */}
+      {/* 1. Sleek Top Navigation Bar with 2D Grid / 3D Loss View Switcher */}
       <TopCommandBar
+        viewMode={viewMode}
+        onSelectViewMode={setViewMode}
         personaMode={personaMode}
         onTogglePersonaMode={() =>
           setPersonaMode(p => (p === 'beginner' ? 'judge' : 'beginner'))
@@ -324,33 +330,53 @@ export function App() {
         intuitionMode={personaMode === 'beginner'}
       />
 
-      {/* 3. Central Interactive Mathematical Canvas Viewport */}
-      <div className="fixed inset-0 w-screen h-screen">
-        <ManifoldWarper2D
-          weights={weights}
-          dataset={dataset}
-          tau={tau}
-          onChangeTau={updater => setTau(updater)}
-          tauSVD={0}
-          onChangeTauSVD={() => {}}
-          warperMode="homotopy"
-          onChangeWarperMode={() => {}}
-          onAddPoint={handleAddPoint}
-          activeClass={activeClass}
-          showHeatmap={showHeatmap}
-          selectedPoint={selectedPoint}
-          onSelectPoint={pt => setSelectedPoint(pt)}
-          intuitionMode={personaMode === 'beginner'}
-          epoch={epoch}
-          loss={currentLoss}
-          accuracy={currentAcc}
-          isTraining={isTraining}
-          lastChangedParam={lastChangedParam}
-          isSingularActive={isSingularActive}
-          isDeadReLUActive={isDeadReLUActive}
-          className="w-full h-full"
-        />
-      </div>
+      {/* 3. Central Viewport: 2D Manifold Grid or 3D Loss Landscape */}
+      {viewMode === 'geometry' ? (
+        <div className="fixed inset-0 w-screen h-screen">
+          <ManifoldWarper2D
+            weights={weights}
+            dataset={dataset}
+            tau={tau}
+            onChangeTau={updater => setTau(updater)}
+            tauSVD={0}
+            onChangeTauSVD={() => {}}
+            warperMode="homotopy"
+            onChangeWarperMode={() => {}}
+            onAddPoint={handleAddPoint}
+            activeClass={activeClass}
+            showHeatmap={showHeatmap}
+            selectedPoint={selectedPoint}
+            onSelectPoint={pt => setSelectedPoint(pt)}
+            intuitionMode={personaMode === 'beginner'}
+            epoch={epoch}
+            loss={currentLoss}
+            accuracy={currentAcc}
+            isTraining={isTraining}
+            lastChangedParam={lastChangedParam}
+            isSingularActive={isSingularActive}
+            isDeadReLUActive={isDeadReLUActive}
+            className="w-full h-full"
+          />
+        </div>
+      ) : (
+        <div className="fixed inset-0 w-screen h-screen pt-16 pb-3 px-4 z-20 flex items-center justify-center bg-[#0B1020]">
+          <LossLandscapeView
+            dataset={dataset}
+            weights={weights}
+            onSelectParam={(p1, p2) => {
+              setWeights(w => ({
+                ...w,
+                W1: [
+                  [p1, w.W1[0][1]],
+                  [w.W1[1][0], p2],
+                ],
+              }));
+              setLastChangedParam('3D Loss Surface Parameter');
+            }}
+            className="w-full max-w-6xl h-full max-h-[88vh]"
+          />
+        </div>
+      )}
 
       {/* 4. Unified Simple & Attractive Tactile Control Studio */}
       {isLeftPanelOpen && (
@@ -380,6 +406,8 @@ export function App() {
           isDeadReLUActive={isDeadReLUActive}
           intuitionMode={personaMode === 'beginner'}
           onLaunchJudgeDemo={() => setIsJudgeDemoOpen(true)}
+          viewMode={viewMode}
+          onToggleViewMode={() => setViewMode(v => (v === 'geometry' ? 'loss' : 'geometry'))}
         />
       )}
 
@@ -397,7 +425,10 @@ export function App() {
         onResetTraining={handleResetNetwork}
         onSelectPreset={handleSelectPreset}
         onSetInitialUnlearnedWeights={handleSetInitialUnlearnedWeights}
-        onTransitionToAdvancedLab={() => setIsLeftPanelOpen(true)}
+        onTransitionToAdvancedLab={() => {
+          setViewMode('loss');
+          setIsLeftPanelOpen(true);
+        }}
       />
 
       {/* 6. Handbooks & Mathematical Proof Modals */}

@@ -7,12 +7,16 @@ import {
   Play,
   PanelLeftClose,
   PanelLeftOpen,
+  Mountain,
+  Layers,
 } from 'lucide-react';
 
 export type ViewMode = 'geometry' | 'loss' | 'graph';
 export type LabMode = 'guided' | 'advanced';
 
 interface TopCommandBarProps {
+  viewMode: 'geometry' | 'loss';
+  onSelectViewMode: (mode: 'geometry' | 'loss') => void;
   personaMode: 'beginner' | 'judge';
   onTogglePersonaMode: () => void;
   onOpenDemo: () => void;
@@ -20,11 +24,9 @@ interface TopCommandBarProps {
   onResetAll: () => void;
   isLeftPanelOpen: boolean;
   onToggleLeftPanel: () => void;
-  // Optional legacy props for compatibility
+  // Optional legacy props
   labMode?: LabMode;
   onSelectLabMode?: (mode: LabMode) => void;
-  viewMode?: ViewMode;
-  onSelectViewMode?: (mode: ViewMode) => void;
   currentPreset?: string;
   onSelectPreset?: (preset: any) => void;
   onGoHome?: () => void;
@@ -33,6 +35,8 @@ interface TopCommandBarProps {
 }
 
 export const TopCommandBar: React.FC<TopCommandBarProps> = ({
+  viewMode,
+  onSelectViewMode,
   personaMode,
   onTogglePersonaMode,
   onOpenDemo,
@@ -75,32 +79,56 @@ export const TopCommandBar: React.FC<TopCommandBarProps> = ({
         </div>
       </div>
 
-      {/* Center: Glowing Pill Toggle (Beginner Intuition vs Full Math View) */}
-      <div className="pointer-events-auto">
+      {/* Center: View Switcher (2D Grid vs 3D Loss) & Intuition/Math Toggle */}
+      <div className="pointer-events-auto flex items-center gap-2">
+        {/* Clean 2-Way View Toggle: 2D Grid vs 3D Mistake Valley */}
+        <div className="flex items-center p-0.5 rounded-xl bg-[#0B1020]/95 border border-[#29374B] shadow-md">
+          <button
+            onClick={() => onSelectViewMode('geometry')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              viewMode === 'geometry'
+                ? 'bg-gradient-to-r from-[#53D4F4]/25 to-[#38BDF8]/25 text-[#53D4F4] border border-[#53D4F4]/50 shadow-sm'
+                : 'text-[#9DAFC3] hover:text-[#F4F7FB]'
+            }`}
+            title="Switch to 2D Coordinate Grid & Dividing Fence"
+          >
+            <span>📐</span>
+            <span>{personaMode === 'beginner' ? '2D Fence' : '2D Grid'}</span>
+          </button>
+
+          <button
+            onClick={() => onSelectViewMode('loss')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              viewMode === 'loss'
+                ? 'bg-gradient-to-r from-[#F078C5]/25 to-[#8B5CF6]/25 text-[#F078C5] border border-[#F078C5]/50 shadow-sm'
+                : 'text-[#9DAFC3] hover:text-[#F4F7FB]'
+            }`}
+            title="Switch to 3D Loss Surface & Mistake Valley (Three.js)"
+          >
+            <Mountain className="w-3.5 h-3.5 text-[#F078C5]" />
+            <span>{personaMode === 'beginner' ? '3D Valley' : 'Loss 3D'}</span>
+          </button>
+        </div>
+
+        {/* Glowing Pill Toggle (Beginner Intuition vs Full Math View) */}
         <button
           onClick={onTogglePersonaMode}
-          className={`h-9 px-3.5 rounded-xl border text-xs font-semibold flex items-center gap-2 transition-all shadow-lg active:scale-95 ${
+          className={`h-9 px-3 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-all shadow-md active:scale-95 ${
             personaMode === 'beginner'
-              ? 'border-[#53D4F4]/70 bg-[#111A2A]/95 text-[#53D4F4] shadow-[0_0_20px_rgba(83,212,244,0.3)] ring-1 ring-[#53D4F4]/40'
-              : 'border-[#8B5CF6]/70 bg-[#111A2A]/95 text-[#C4B5FD] shadow-[0_0_20px_rgba(139,92,246,0.3)] ring-1 ring-[#8B5CF6]/40'
+              ? 'border-[#53D4F4]/70 bg-[#111A2A]/95 text-[#53D4F4] shadow-[0_0_15px_rgba(83,212,244,0.25)] ring-1 ring-[#53D4F4]/40'
+              : 'border-[#8B5CF6]/70 bg-[#111A2A]/95 text-[#C4B5FD] shadow-[0_0_15px_rgba(139,92,246,0.25)] ring-1 ring-[#8B5CF6]/40'
           }`}
-          title="Toggle between 💡 Beginner Intuition Mode (Physical Metaphors) and ∑ Full Math View (Formal Rigor)"
+          title="Toggle between 💡 Beginner Intuition Mode and ∑ Full Math View"
         >
           {personaMode === 'beginner' ? (
             <>
               <span className="text-sm">💡</span>
-              <span className="font-bold tracking-tight">Beginner Intuition</span>
-              <span className="text-[10px] text-[#9DAFC3] font-normal hidden md:inline">
-                (Click for Math Mode)
-              </span>
+              <span className="font-bold tracking-tight">Intuition</span>
             </>
           ) : (
             <>
               <span className="font-mono text-sm font-bold text-[#A78BFA]">∑</span>
-              <span className="font-bold tracking-tight">Full Math View</span>
-              <span className="text-[10px] text-[#9DAFC3] font-normal hidden md:inline">
-                (Click for Intuition Mode)
-              </span>
+              <span className="font-bold tracking-tight">Full Math</span>
             </>
           )}
         </button>

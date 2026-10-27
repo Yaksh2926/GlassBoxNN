@@ -15,6 +15,7 @@ import {
   TrendingDown,
   Brain,
   HelpCircle,
+  Mountain,
 } from 'lucide-react';
 import { Point2D, NetworkWeights, Matrix2x2, Vector2D } from '../../math/types';
 import { DatasetPreset } from '../../math/datasets';
@@ -46,6 +47,8 @@ interface SimpleStudioProps {
   isDeadReLUActive: boolean;
   intuitionMode: boolean;
   onLaunchJudgeDemo: () => void;
+  viewMode?: 'geometry' | 'loss';
+  onToggleViewMode?: () => void;
 }
 
 export const SimpleStudio: React.FC<SimpleStudioProps> = ({
@@ -74,6 +77,8 @@ export const SimpleStudio: React.FC<SimpleStudioProps> = ({
   isDeadReLUActive,
   intuitionMode,
   onLaunchJudgeDemo,
+  viewMode = 'geometry',
+  onToggleViewMode,
 }) => {
   // Update diagonal matrix stretch weights
   const handleW11Change = (val: number) => {
@@ -329,6 +334,25 @@ export const SimpleStudio: React.FC<SimpleStudioProps> = ({
                 ? 'Gradients are updating weights to push the fence downhill into the low-mistake gap.'
                 : 'Click Start AI Learning to watch gradient descent compute exact calculus updates live.'}
             </p>
+          )}
+
+          {/* 3D Mistake Valley Jump Button */}
+          {onToggleViewMode && (
+            <button
+              onClick={onToggleViewMode}
+              className={`w-full py-2 px-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 transition-all shadow-sm active:scale-95 ${
+                viewMode === 'loss'
+                  ? 'bg-gradient-to-r from-[#F078C5]/25 to-[#8B5CF6]/25 border-[#F078C5] text-[#F078C5]'
+                  : 'bg-[#182438] hover:bg-[#F078C5]/15 border-[#29374B] hover:border-[#F078C5]/50 text-[#F4F7FB]'
+              }`}
+            >
+              <Mountain className="w-4 h-4 text-[#F078C5]" />
+              <span>
+                {viewMode === 'geometry'
+                  ? (intuitionMode ? '🏔️ View 3D Mistake Valley (Loss 3D)' : '🏔️ Switch to 3D Loss Surface')
+                  : (intuitionMode ? '📐 Return to 2D Dividing Fence' : '📐 Return to 2D Geometry Grid')}
+              </span>
+            </button>
           )}
         </div>
 
