@@ -8,10 +8,10 @@ import {
   Mountain,
   LayoutGrid,
   BookMarked,
-  Eye,
+  Home,
 } from 'lucide-react';
 
-export type NavTab = 'playground' | 'story' | 'loss';
+export type NavTab = 'cover' | 'playground' | 'loss' | 'story';
 
 interface TopCommandBarProps {
   navTab: NavTab;
@@ -39,11 +39,12 @@ export const TopCommandBar: React.FC<TopCommandBarProps> = ({
 }) => {
   return (
     <header className="sticky top-0 inset-x-0 z-40 px-4 py-2.5 bg-[#0C0C14]/95 backdrop-blur-xl border-b border-[#262636] flex items-center justify-between select-none">
-      {/* Left: Brand Logo & Ideathon Tag */}
+      {/* Left: Brand Logo & Ideathon Tag (Click to Go Home / Cover) */}
       <div className="flex items-center gap-3">
         <button
-          onClick={() => onSelectNavTab('playground')}
+          onClick={() => onSelectNavTab('cover')}
           className="flex items-center gap-2.5 group cursor-pointer"
+          title="Return to Cover Page"
         >
           <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#FF5E7E] to-[#FF4767] flex items-center justify-center text-white shadow-[0_0_12px_rgba(255,94,126,0.5)] group-hover:scale-105 transition-transform">
             <Brain className="w-4 h-4" />
@@ -61,6 +62,19 @@ export const TopCommandBar: React.FC<TopCommandBarProps> = ({
       {/* Center: Main Navigation Tabs (Matching Presentation Slides) */}
       <div className="flex items-center p-1 rounded-xl bg-[#141422] border border-[#262636] text-xs font-semibold">
         <button
+          onClick={() => onSelectNavTab('cover')}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${
+            navTab === 'cover'
+              ? 'bg-[#FF5E7E] text-white shadow-[0_0_12px_rgba(255,94,126,0.4)] font-bold'
+              : 'text-[#9E9EAF] hover:text-white'
+          }`}
+          title="Cover Page: Front View of the Website"
+        >
+          <Home className="w-3.5 h-3.5" />
+          <span>Cover</span>
+        </button>
+
+        <button
           onClick={() => onSelectNavTab('playground')}
           className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg transition-all ${
             navTab === 'playground'
@@ -74,19 +88,6 @@ export const TopCommandBar: React.FC<TopCommandBarProps> = ({
         </button>
 
         <button
-          onClick={() => onSelectNavTab('story')}
-          className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg transition-all ${
-            navTab === 'story'
-              ? 'bg-[#FF5E7E] text-white shadow-[0_0_12px_rgba(255,94,126,0.4)] font-bold'
-              : 'text-[#9E9EAF] hover:text-white'
-          }`}
-          title="Slide 1 & 3: The Black Box Problem & Why GlassBox NN Matters"
-        >
-          <BookMarked className="w-3.5 h-3.5" />
-          <span>The Story</span>
-        </button>
-
-        <button
           onClick={() => onSelectNavTab('loss')}
           className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg transition-all ${
             navTab === 'loss'
@@ -97,6 +98,19 @@ export const TopCommandBar: React.FC<TopCommandBarProps> = ({
         >
           <Mountain className="w-3.5 h-3.5" />
           <span>3D Loss Valley</span>
+        </button>
+
+        <button
+          onClick={() => onSelectNavTab('story')}
+          className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg transition-all ${
+            navTab === 'story'
+              ? 'bg-[#FF5E7E] text-white shadow-[0_0_12px_rgba(255,94,126,0.4)] font-bold'
+              : 'text-[#9E9EAF] hover:text-white'
+          }`}
+          title="Slide 1 & 3: The Black Box Problem & Why GlassBox NN Matters"
+        >
+          <BookMarked className="w-3.5 h-3.5" />
+          <span>The Story</span>
         </button>
       </div>
 

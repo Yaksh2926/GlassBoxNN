@@ -8,7 +8,9 @@ import {
 } from './math/types';
 import { Datasets, DatasetPreset } from './math/datasets';
 import { TopCommandBar, NavTab } from './components/docks/TopCommandBar';
+import { CoverPage } from './components/landing/CoverPage';
 import { ConsoleStudio } from './components/studio/ConsoleStudio';
+import { LossConsoleStudio } from './components/loss/LossConsoleStudio';
 import { BlackBoxStoryView } from './components/story/BlackBoxStoryView';
 import { SimpleStudio } from './components/studio/SimpleStudio';
 import { ManifoldWarper2D } from './components/warper/ManifoldWarper2D';
@@ -22,8 +24,8 @@ import { NeuralEngine, OptimizerState, createInitialOptimizerState } from './mat
 import confetti from 'canvas-confetti';
 
 export function App() {
-  // Navigation Tab: 'playground' (Slide 2 Studio) | 'story' (Slide 1 & 3 Presentation) | 'loss' (3D Loss Landscape)
-  const [navTab, setNavTab] = useState<NavTab>('playground');
+  // Navigation Tab: 'cover' (Front View / Cover Page) | 'playground' (Slide 2 Studio) | 'loss' (3D Loss Landscape) | 'story' (Slide 1 & 3 Presentation)
+  const [navTab, setNavTab] = useState<NavTab>('cover');
 
   // Dual persona: 'beginner' (Default Intuition Mode) | 'judge' (Full Math View)
   const [personaMode, setPersonaMode] = useState<'beginner' | 'judge'>('beginner');
@@ -332,6 +334,15 @@ export function App() {
 
       {/* 3. Main Viewport Container */}
       <main className="flex-1 overflow-y-auto overflow-x-hidden relative">
+        {navTab === 'cover' && (
+          <CoverPage
+            onEnterLab={() => setNavTab('playground')}
+            onExplore3DLoss={() => setNavTab('loss')}
+            onReadStory={() => setNavTab('story')}
+            onLaunchJudgeDemo={() => setIsJudgeDemoOpen(true)}
+          />
+        )}
+
         {navTab === 'playground' && (
           <ConsoleStudio
             currentPreset={currentPreset}
@@ -370,53 +381,37 @@ export function App() {
           />
         )}
 
+        {navTab === 'loss' && (
+          <LossConsoleStudio
+            dataset={dataset}
+            weights={weights}
+            onSelectParam={(p1, p2) => {
+              setWeights(w => ({
+                ...w,
+                W1: [
+                  [p1, w.W1[0][1]],
+                  [w.W1[1][0], p2],
+                ],
+              }));
+              setLastChangedParam('3D Loss Surface Parameter');
+            }}
+            intuitionMode={personaMode === 'beginner'}
+            onToggleIntuitionMode={() =>
+              setPersonaMode(p => (p === 'beginner' ? 'judge' : 'beginner'))
+            }
+            onLaunchJudgeDemo={() => setIsJudgeDemoOpen(true)}
+            onSwitchToPlayground={() => setNavTab('playground')}
+            onSwitchToStory={() => setNavTab('story')}
+            onResetModel={handleResetNetwork}
+          />
+        )}
+
         {navTab === 'story' && (
           <BlackBoxStoryView
             onEnterPlayground={() => setNavTab('playground')}
             onEnter3DLoss={() => setNavTab('loss')}
             onLaunchJudgeDemo={() => setIsJudgeDemoOpen(true)}
           />
-        )}
-
-        {navTab === 'loss' && (
-          <div className="w-full h-full min-h-[calc(100vh-60px)] p-4 md:p-6 flex flex-col items-center justify-center bg-[#0C0C14]">
-            <div className="w-full max-w-6xl flex items-center justify-between mb-3">
-              <div>
-                <h2 className="text-xl md:text-2xl font-black text-white flex items-center gap-2">
-                  <span>3D Loss Mistake Valley</span>
-                  <span className="text-xs font-mono px-2 py-0.5 rounded-full bg-[#FF5E7E]/20 text-[#FF5E7E] border border-[#FF5E7E]/40">
-                    Three.js 60fps
-                  </span>
-                </h2>
-                <p className="text-xs text-[#9E9EAF]">
-                  Explore the binary cross-entropy loss landscape. Drag to rotate, scroll to zoom.
-                </p>
-              </div>
-
-              <button
-                onClick={() => setNavTab('playground')}
-                className="px-3.5 py-1.5 rounded-xl border border-[#262636] bg-[#141422] hover:border-[#FF5E7E]/50 text-white text-xs font-bold transition-all"
-              >
-                Back to Playground ➔
-              </button>
-            </div>
-
-            <LossLandscapeView
-              dataset={dataset}
-              weights={weights}
-              onSelectParam={(p1, p2) => {
-                setWeights(w => ({
-                  ...w,
-                  W1: [
-                    [p1, w.W1[0][1]],
-                    [w.W1[1][0], p2],
-                  ],
-                }));
-                setLastChangedParam('3D Loss Surface Parameter');
-              }}
-              className="w-full max-w-6xl h-[75vh]"
-            />
-          </div>
         )}
       </main>
 
