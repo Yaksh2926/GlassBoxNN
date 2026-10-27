@@ -293,6 +293,10 @@ export function App() {
       title: 'SINGULAR MATRIX RANK COLLAPSE [det(W₁) = 0]',
       theoremText:
         'By the Rank-Nullity Theorem, dim(ker(W₁)) = 1 collapses 2D space onto a 1D line; downstream layers can never separate points whose difference lies in the kernel.',
+      beginnerTitle: '💥 Space Squashed Flat! (2D ➔ 1D Line)',
+      beginnerText:
+        'You set the weights so both grid directions collapsed onto the exact same diagonal line. Once a 2D sheet of paper is squashed into a 1D string, the AI loses a whole dimension and can never separate the dots!',
+      proofBadge: 'det(W₁) = 0 ⟹ Rank(W₁) < 2 (Rank-Nullity Theorem)',
     });
 
     if (collapseAnimRef.current !== null) {
@@ -338,9 +342,13 @@ export function App() {
     setContextType('dead_relu');
     setTheoremToast({
       type: 'dead_relu',
-      title: 'DEAD RELU EXTINCTION [∇_W L = 0]',
+      title: 'DEAD RELU EXTINCTION [∇_W ℒ = 0]',
       theoremText:
         'All preactivations fall into the negative half-space where ReLU\'(z) = 0; the chain rule contains a zero factor, completely stalling gradient descent.',
+      beginnerTitle: '🥶 Brain Freeze! (Zero Gradient Zone)',
+      beginnerText:
+        'All points got pushed into the negative zone where the ReLU fold is completely flat. On flat ground, a ball won\'t roll—so the slope (derivative) becomes 0, all compass nudges stop, and the AI freezes forever!',
+      proofBadge: 'z ≤ 0 ⟹ ReLU\'(z) = 0 ⟹ ∇_W ℒ = 0 (Gradient Freeze)',
     });
   };
 
@@ -426,6 +434,7 @@ export function App() {
         toast={theoremToast}
         onClose={() => setTheoremToast(null)}
         onOpenProofModal={() => setIsSingularProofOpen(true)}
+        intuitionMode={personaMode === 'beginner'}
       />
 
       {/* 4. Central Mathematical Canvas Viewport */}
@@ -451,6 +460,14 @@ export function App() {
               setSelectedPoint(pt);
               setContextType(pt ? 'point_selected' : 'idle');
             }}
+            intuitionMode={personaMode === 'beginner'}
+            epoch={epoch}
+            loss={currentLoss}
+            accuracy={currentAcc}
+            isTraining={isTraining}
+            lastChangedParam={lastChangedParam}
+            isSingularActive={isSingularActive}
+            isDeadReLUActive={isDeadReLUActive}
             className="w-full h-full"
           />
         </div>
@@ -523,6 +540,12 @@ export function App() {
             accuracy={currentAcc}
             onOpenAdvancedLab={handleTransitionToAdvancedLab}
             onLaunchJudgeDemo={() => setIsJudgeDemoOpen(true)}
+            intuitionMode={personaMode === 'beginner'}
+            onNavigateView={(newLabMode, newViewMode) => {
+              setLabMode(newLabMode);
+              setViewMode(newViewMode);
+              if (newLabMode === 'advanced') setIsRightPanelOpen(true);
+            }}
           />
         )
       ) : (

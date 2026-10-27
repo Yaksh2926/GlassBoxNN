@@ -16,10 +16,15 @@ import {
   Cpu,
   Target,
   Zap,
+  Box,
+  GitBranch,
+  Compass,
+  Mountain,
 } from 'lucide-react';
 import { Point2D, NetworkWeights, OptimizerConfig } from '../../math/types';
 import { DatasetPreset } from '../../math/datasets';
 import { MathView } from '../common/MathView';
+import { getTermText } from '../../math/metaphors';
 
 interface GuidedStudioProps {
   currentPreset: DatasetPreset;
@@ -36,6 +41,8 @@ interface GuidedStudioProps {
   accuracy: number;
   onOpenAdvancedLab: () => void;
   onLaunchJudgeDemo: () => void;
+  intuitionMode?: boolean;
+  onNavigateView?: (labMode: 'guided' | 'advanced', viewMode: 'geometry' | 'loss' | 'graph') => void;
 }
 
 export const GuidedStudio: React.FC<GuidedStudioProps> = ({
@@ -53,6 +60,8 @@ export const GuidedStudio: React.FC<GuidedStudioProps> = ({
   accuracy,
   onOpenAdvancedLab,
   onLaunchJudgeDemo,
+  intuitionMode = true,
+  onNavigateView,
 }) => {
   const [activeStep, setActiveStep] = useState<1 | 2 | 3>(1);
   const [showMathDetails, setShowMathDetails] = useState<boolean>(false);
@@ -61,43 +70,53 @@ export const GuidedStudio: React.FC<GuidedStudioProps> = ({
   const getTrainingStatus = () => {
     if (epoch === 0) {
       return {
-        badge: 'Ready to Train',
+        badge: intuitionMode ? 'Blind Guessing' : 'Ready to Train',
         badgeColor: 'text-[#9DAFC3] bg-[#182438] border-[#29374B]',
-        text: 'Click "Train AI" to start learning from the data.',
+        text: intuitionMode
+          ? 'The dividing fence is placed randomly. Click "Train AI" to start downhill compass nudges.'
+          : 'Initial random parameter state. Click "Train AI" to start gradient descent.',
       };
     }
     if (accuracy >= 0.95) {
       return {
-        badge: 'Excellent Separation',
+        badge: intuitionMode ? 'Fence Perfect!' : 'Converged (100%)',
         badgeColor: 'text-[#10B981] bg-[#10B981]/15 border-[#10B981]/40',
-        text: `The AI achieved ${(accuracy * 100).toFixed(0)}% accuracy! The boundary cleanly separates both classes.`,
+        text: intuitionMode
+          ? `The AI reached ${(accuracy * 100).toFixed(0)}% accuracy! The fence cleanly divides both teams.`
+          : `Optimal separation achieved at epoch ${epoch} with ℒ = ${loss.toFixed(4)}.`,
       };
     }
     if (accuracy >= 0.75) {
       return {
-        badge: 'Learning in Progress',
+        badge: intuitionMode ? 'Downhill Progress' : 'Learning in Progress',
         badgeColor: 'text-[#53D4F4] bg-[#53D4F4]/15 border-[#53D4F4]/40',
-        text: `Accuracy is currently ${(accuracy * 100).toFixed(0)}%. The boundary is shifting into position.`,
+        text: intuitionMode
+          ? `Accuracy is ${(accuracy * 100).toFixed(0)}%. The fence is turning toward the optimal gap.`
+          : `Current accuracy ${(accuracy * 100).toFixed(0)}%. Gradient vector updating parameters.`,
       };
     }
     if (epoch > 80 && accuracy < 0.65) {
       return {
-        badge: 'Slow Convergence',
+        badge: intuitionMode ? 'Stuck in Valley' : 'Slow Convergence',
         badgeColor: 'text-[#F7C76B] bg-[#F7C76B]/15 border-[#F7C76B]/40',
-        text: 'The model is taking longer to settle. Try clicking "Reset" or switch datasets.',
+        text: intuitionMode
+          ? 'The AI is struggling in flat terrain. Try clicking "Reset" or switch datasets.'
+          : 'High condition number or plateau encountered. Try Adam optimizer or reset.',
       };
     }
     return {
-      badge: 'Training Active',
+      badge: intuitionMode ? 'Compass Active' : 'Training Active',
       badgeColor: 'text-[#53D4F4] bg-[#53D4F4]/15 border-[#53D4F4]/40',
-      text: 'Neural weights are continuously updating via gradient descent.',
+      text: intuitionMode
+        ? 'Neural knobs are continuously adjusting to lower the mistake score.'
+        : 'Parameters updating iteratively along negative gradient direction.',
     };
   };
 
   const status = getTrainingStatus();
 
   return (
-    <aside className="fixed left-3 top-16 bottom-6 z-30 w-[310px] sm:w-[340px] flex flex-col rounded-xl overflow-hidden border border-[#29374B] bg-[#111A2A]/95 backdrop-blur-md shadow-2xl text-[#F4F7FB] select-none">
+    <aside className="fixed left-3 top-16 bottom-6 z-30 w-[315px] sm:w-[345px] flex flex-col rounded-xl overflow-hidden border border-[#29374B] bg-[#111A2A]/95 backdrop-blur-md shadow-2xl text-[#F4F7FB] select-none">
       {/* Studio Header */}
       <div className="px-4 py-3 border-b border-[#29374B] bg-[#0B1020]/70 flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -108,15 +127,15 @@ export const GuidedStudio: React.FC<GuidedStudioProps> = ({
             <span className="font-semibold text-xs tracking-tight text-[#F4F7FB] block">
               Guided AI Studio
             </span>
-            <span className="text-[10px] font-mono text-[#9DAFC3]">
-              3-Step Demonstration
+            <span className="text-[10px] font-mono text-[#53D4F4]">
+              {intuitionMode ? '💡 Physical Metaphors' : '∑ Formal Mathematics'}
             </span>
           </div>
         </div>
 
         <button
           onClick={onLaunchJudgeDemo}
-          className="text-[10px] font-semibold bg-[#53D4F4] text-[#0B1020] px-2.5 py-1 rounded-md hover:bg-[#68ddfc] transition-all flex items-center gap-1 shadow-sm active:scale-95"
+          className="text-[10px] font-bold bg-[#53D4F4] text-[#0B1020] px-2.5 py-1 rounded-md hover:bg-[#68ddfc] transition-all flex items-center gap-1 shadow-sm active:scale-95"
           title="Launch Guided 2-Minute College Ideathon Demo"
         >
           <Sparkles className="w-3 h-3" />
@@ -135,7 +154,7 @@ export const GuidedStudio: React.FC<GuidedStudioProps> = ({
           }`}
         >
           <span className="text-[9px] opacity-70">STEP 1</span>
-          <span>Choose Data</span>
+          <span>{intuitionMode ? 'Teams' : 'Choose Data'}</span>
         </button>
 
         <button
@@ -147,7 +166,7 @@ export const GuidedStudio: React.FC<GuidedStudioProps> = ({
           }`}
         >
           <span className="text-[9px] opacity-70">STEP 2</span>
-          <span>Train AI</span>
+          <span>{intuitionMode ? 'Fence' : 'Train AI'}</span>
         </button>
 
         <button
@@ -159,7 +178,7 @@ export const GuidedStudio: React.FC<GuidedStudioProps> = ({
           }`}
         >
           <span className="text-[9px] opacity-70">STEP 3</span>
-          <span>Understand</span>
+          <span>{intuitionMode ? '3 Pillars' : 'Understand'}</span>
         </button>
       </div>
 
@@ -173,11 +192,12 @@ export const GuidedStudio: React.FC<GuidedStudioProps> = ({
                 Step 1 of 3
               </span>
               <h3 className="text-base font-bold text-[#F4F7FB]">
-                Select a Challenge
+                {intuitionMode ? 'Two Teams on a Field' : 'Select Classification Problem'}
               </h3>
               <p className="text-xs text-[#9DAFC3] mt-1 leading-relaxed">
-                Choose a pattern for the AI to learn. See how simple lines handle easy data,
-                while neural networks are needed for complex geometry.
+                {intuitionMode
+                  ? 'Choose a challenge for the AI. See how simple straight lines handle easy dots, while folding the sheet is required for the criss-cross pattern!'
+                  : 'Select coordinate data distribution. Linearly separable clusters require no hidden layer, whereas XOR parity demands non-linear space folding.'}
               </p>
             </div>
 
@@ -197,14 +217,18 @@ export const GuidedStudio: React.FC<GuidedStudioProps> = ({
                     <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-[#10B981]/20 text-[#10B981] border border-[#10B981]/40">
                       EASY
                     </span>
-                    <strong className="text-xs text-[#F4F7FB]">Linear Clusters</strong>
+                    <strong className="text-xs text-[#F4F7FB]">
+                      {intuitionMode ? 'Two Separate Groups' : 'Linear Clusters'}
+                    </strong>
                   </div>
                   {currentPreset === 'linear' && (
                     <CheckCircle2 className="w-4 h-4 text-[#53D4F4]" />
                   )}
                 </div>
                 <p className="text-[11px] text-[#9DAFC3] mt-2 leading-relaxed">
-                  Two separate clusters of dots. Can be cleanly divided by a single straight boundary line.
+                  {intuitionMode
+                    ? 'Two distinct clusters. A single straight dividing fence cleanly separates both teams.'
+                    : 'Linearly separable in ℝ². Can be solved with zero hidden units via a single affine hyperplane.'}
                 </p>
               </button>
 
@@ -222,15 +246,18 @@ export const GuidedStudio: React.FC<GuidedStudioProps> = ({
                     <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-[#F078C5]/20 text-[#F078C5] border border-[#F078C5]/40">
                       CHALLENGE
                     </span>
-                    <strong className="text-xs text-[#F4F7FB]">XOR Parity Pattern</strong>
+                    <strong className="text-xs text-[#F4F7FB]">
+                      {intuitionMode ? 'Criss-Cross Puzzle' : 'XOR Parity Pattern'}
+                    </strong>
                   </div>
                   {currentPreset === 'xor' && (
                     <CheckCircle2 className="w-4 h-4 text-[#53D4F4]" />
                   )}
                 </div>
                 <p className="text-[11px] text-[#9DAFC3] mt-2 leading-relaxed">
-                  Diagonal criss-cross pattern. Mathematically impossible for a straight line; requires
-                  the neural network to fold coordinate space!
+                  {intuitionMode
+                    ? 'Diagonal criss-cross! Impossible for a flat straight fence—the AI must fold the rubber sheet like origami to separate them!'
+                    : 'Linearly inseparable (Minsky & Papert, 1969). Requires Cover\'s theorem space-folding via non-linear ReLU.'}
                 </p>
               </button>
             </div>
@@ -238,20 +265,22 @@ export const GuidedStudio: React.FC<GuidedStudioProps> = ({
             {/* Class Color Legend Box */}
             <div className="p-3 rounded-lg bg-[#0B1020] border border-[#29374B] text-xs space-y-2">
               <span className="text-[10px] font-mono text-[#9DAFC3] uppercase tracking-wider block">
-                Target Classes to Separate
+                {intuitionMode ? 'Two Teams on the Field' : 'Target Classes to Separate'}
               </span>
               <div className="flex items-center justify-between font-mono text-[11px]">
                 <div className="flex items-center gap-2 text-[#53D4F4]">
                   <span className="text-sm">●</span>
-                  <span>Class 0 (Cyan Dots)</span>
+                  <span>{intuitionMode ? 'Team Cyan (Circles)' : 'Class 0 (Cyan Dots)'}</span>
                 </div>
                 <div className="flex items-center gap-2 text-[#F078C5]">
                   <span className="text-sm">◆</span>
-                  <span>Class 1 (Pink Dots)</span>
+                  <span>{intuitionMode ? 'Team Pink (Diamonds)' : 'Class 1 (Pink Dots)'}</span>
                 </div>
               </div>
               <p className="text-[10.5px] text-[#9DAFC3] leading-relaxed pt-1 border-t border-[#29374B]/50">
-                The AI's objective is to draw a glowing boundary on the canvas that isolates cyan circles from pink diamonds.
+                {intuitionMode
+                  ? 'Goal: The AI must draw a glowing Dividing Fence on the field that separates Team Cyan from Team Pink.'
+                  : 'Goal: Optimize hyperplane w₂ᵀ σ(W₁x + b₁) + b₂ = 0 to minimize binary cross-entropy loss.'}
               </p>
             </div>
 
@@ -260,7 +289,7 @@ export const GuidedStudio: React.FC<GuidedStudioProps> = ({
               onClick={() => setActiveStep(2)}
               className="w-full py-2.5 rounded-lg bg-[#53D4F4] text-[#0B1020] font-semibold text-xs hover:bg-[#68ddfc] transition-all flex items-center justify-center gap-1.5 shadow-sm active:scale-95"
             >
-              <span>Proceed to Step 2: Train AI</span>
+              <span>{intuitionMode ? 'Proceed to Step 2: Build the Fence' : 'Proceed to Step 2: Train AI'}</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -274,11 +303,12 @@ export const GuidedStudio: React.FC<GuidedStudioProps> = ({
                 Step 2 of 3
               </span>
               <h3 className="text-base font-bold text-[#F4F7FB]">
-                Train the Neural Network
+                {intuitionMode ? 'The Dividing Fence (Training)' : 'Train the Neural Network'}
               </h3>
               <p className="text-xs text-[#9DAFC3] mt-1 leading-relaxed">
-                Watch the AI adjust its weights in real time. The decision boundary on the canvas
-                will bend and align as training progresses.
+                {intuitionMode
+                  ? 'Watch the AI adjust its stretch & shift knobs in real time. The dividing fence will twist and snap into position!'
+                  : 'Observe real-time gradient descent parameter updates. The decision boundary aligns with the empirical gap.'}
               </p>
             </div>
 
@@ -286,7 +316,7 @@ export const GuidedStudio: React.FC<GuidedStudioProps> = ({
             <div className="space-y-2">
               <button
                 onClick={onToggleTraining}
-                className={`w-full py-3.5 rounded-xl font-semibold text-xs transition-all flex items-center justify-center gap-2 shadow-lg active:scale-95 ${
+                className={`w-full py-3.5 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2 shadow-lg active:scale-95 ${
                   isTraining
                     ? 'bg-[#F7C76B] text-[#0B1020] hover:bg-[#ebd07a]'
                     : 'bg-[#53D4F4] text-[#0B1020] hover:bg-[#68ddfc]'
@@ -300,7 +330,11 @@ export const GuidedStudio: React.FC<GuidedStudioProps> = ({
                 ) : (
                   <>
                     <Play className="w-4 h-4 fill-current" />
-                    <span>Train AI ({epoch === 0 ? 'Start Learning' : 'Resume'})</span>
+                    <span>
+                      {epoch === 0
+                        ? (intuitionMode ? 'Train AI (Start Compass Nudges)' : 'Train AI (Start Learning)')
+                        : 'Resume Training'}
+                    </span>
                   </>
                 )}
               </button>
@@ -338,7 +372,7 @@ export const GuidedStudio: React.FC<GuidedStudioProps> = ({
                 {/* Prediction Error (Loss) */}
                 <div className="p-2 rounded-lg bg-[#111A2A] border border-[#29374B]">
                   <div className="flex items-center justify-between text-[10px] text-[#9DAFC3]">
-                    <span>Prediction Error</span>
+                    <span>{intuitionMode ? 'Mistake Score' : 'Prediction Error'}</span>
                     <span title="Binary Cross-Entropy Loss: measures distance between AI predictions and true labels. Lower is better.">
                       <HelpCircle className="w-2.5 h-2.5 opacity-60" />
                     </span>
@@ -346,7 +380,9 @@ export const GuidedStudio: React.FC<GuidedStudioProps> = ({
                   <span className="text-base font-bold text-[#F078C5] tabular-nums block mt-0.5">
                     {loss.toFixed(4)}
                   </span>
-                  <span className="text-[9px] text-[#9DAFC3]">BCE Loss</span>
+                  <span className="text-[9px] text-[#9DAFC3]">
+                    {intuitionMode ? 'Lower = Better' : 'BCE Loss ℒ'}
+                  </span>
                 </div>
 
                 {/* Accuracy */}
@@ -360,13 +396,15 @@ export const GuidedStudio: React.FC<GuidedStudioProps> = ({
                   <span className="text-base font-bold text-[#53D4F4] tabular-nums block mt-0.5">
                     {(accuracy * 100).toFixed(1)}%
                   </span>
-                  <span className="text-[9px] text-[#9DAFC3]">Correct Dots</span>
+                  <span className="text-[9px] text-[#9DAFC3]">
+                    {intuitionMode ? 'Correct Dots' : 'Empirical Acc'}
+                  </span>
                 </div>
               </div>
 
               {/* Epoch Count */}
               <div className="flex items-center justify-between text-xs pt-1 text-[#9DAFC3]">
-                <span>Training Rounds (Epochs)</span>
+                <span>{intuitionMode ? 'Compass Rounds' : 'Training Rounds (Epochs)'}</span>
                 <span className="text-[#F4F7FB] font-bold">{epoch}</span>
               </div>
 
@@ -380,75 +418,122 @@ export const GuidedStudio: React.FC<GuidedStudioProps> = ({
               onClick={() => setActiveStep(3)}
               className="w-full py-2.5 rounded-lg bg-[#182438] border border-[#29374B] hover:border-[#53D4F4]/50 text-[#F4F7FB] font-semibold text-xs transition-all flex items-center justify-center gap-1.5 shadow-sm"
             >
-              <span>Proceed to Step 3: Understand Learning</span>
+              <span>{intuitionMode ? 'Proceed to Step 3: The 3 Pillars' : 'Proceed to Step 3: Understand Learning'}</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
         )}
 
-        {/* ================= STEP 3: UNDERSTAND HOW IT LEARNS ================= */}
+        {/* ================= STEP 3: THE 3 PILLARS (MATHX THEME 5) ================= */}
         {activeStep === 3 && (
-          <div className="space-y-4 animate-in fade-in duration-150">
+          <div className="space-y-3.5 animate-in fade-in duration-150">
             <div>
-              <span className="text-[10px] font-mono text-[#53D4F4] font-bold uppercase tracking-wider block">
-                Step 3 of 3
-              </span>
-              <h3 className="text-base font-bold text-[#F4F7FB]">
-                How the AI Learns
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-mono text-[#53D4F4] font-bold uppercase tracking-wider block">
+                  MathX Theme 5
+                </span>
+                <span className="text-[9px] font-mono px-2 py-0.5 rounded bg-[#182438] text-[#A78BFA] border border-[#29374B]">
+                  Explainable AI
+                </span>
+              </div>
+              <h3 className="text-base font-bold text-[#F4F7FB] mt-0.5">
+                The 3 Pillars of AI Math
               </h3>
               <p className="text-xs text-[#9DAFC3] mt-1 leading-relaxed">
-                Demystifying the learning cycle from input coordinate to weight update.
+                How mathematics makes a neural network learn, explained through three physical metaphors:
               </p>
             </div>
 
-            {/* Plain-Language Learning Pipeline */}
-            <div className="p-3 rounded-xl bg-[#0B1020] border border-[#29374B] space-y-2 text-xs">
-              <span className="text-[10px] font-mono text-[#53D4F4] font-semibold uppercase tracking-wider block">
-                The 5-Step Learning Cycle
-              </span>
-              <div className="space-y-1.5 text-[11px] font-mono">
+            {/* PILLAR 1: Linear Algebra of Layers */}
+            <div className="p-3 rounded-xl bg-[#0B1020] border border-[#29374B] space-y-2">
+              <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className="w-5 h-5 rounded bg-[#182438] text-[#53D4F4] font-bold flex items-center justify-center text-[10px]">1</span>
-                  <span><strong>Data:</strong> Takes dot position (X, Y)</span>
+                  <div className="w-5 h-5 rounded bg-[#53D4F4]/20 border border-[#53D4F4]/40 flex items-center justify-center text-[#53D4F4] text-[10px] font-bold">
+                    1
+                  </div>
+                  <strong className="text-xs text-[#53D4F4]">
+                    {intuitionMode ? 'Pillar 1: The Rubber Sheet' : 'Pillar 1: Linear Algebra of Layers'}
+                  </strong>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-5 h-5 rounded bg-[#182438] text-[#53D4F4] font-bold flex items-center justify-center text-[10px]">2</span>
-                  <span><strong>Prediction:</strong> AI calculates class guess</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-5 h-5 rounded bg-[#182438] text-[#F078C5] font-bold flex items-center justify-center text-[10px]">3</span>
-                  <span><strong>Error:</strong> Measures how far off guess was</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-5 h-5 rounded bg-[#182438] text-[#F7C76B] font-bold flex items-center justify-center text-[10px]">4</span>
-                  <span><strong>Backprop:</strong> Adjusts weights backwards</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-5 h-5 rounded bg-[#182438] text-[#10B981] font-bold flex items-center justify-center text-[10px]">5</span>
-                  <span><strong>Improved:</strong> Boundary shifts closer</span>
-                </div>
+                <span className="text-[9px] font-mono text-[#9DAFC3]">W₁x + b₁</span>
+              </div>
+
+              <p className="text-[11px] text-[#F4F7FB] leading-relaxed">
+                Multiplying by <strong>Weights (W₁)</strong> stretches and rotates the 2D grid, <strong>Bias (b₁)</strong> slides it, and <strong>ReLU</strong> folds it like origami so tangled XOR dots can be separated with one straight cut!
+              </p>
+
+              <div className="flex items-center justify-between pt-1 border-t border-[#29374B]/50 text-[10px] text-[#9DAFC3] font-mono">
+                <span>Cover's Theorem</span>
+                <span className="text-[#53D4F4]">Origami Space Fold</span>
               </div>
             </div>
 
-            {/* Architecture Schematic: 2-2-1 Perceptron */}
-            <div className="p-3 rounded-xl bg-[#0B1020] border border-[#29374B] space-y-2 text-xs">
-              <span className="text-[10px] font-mono text-[#9DAFC3] uppercase tracking-wider block">
-                Network Architecture: 2 ➔ 2 ➔ 1
-              </span>
-              <div className="grid grid-cols-3 gap-2 text-center font-mono text-[10px]">
-                <div className="p-2 rounded bg-[#111A2A] border border-[#29374B]">
-                  <span className="text-[#53D4F4] font-bold block text-xs">2 Inputs</span>
-                  <span className="text-[#9DAFC3] text-[9px]">(X, Y) Coordinates</span>
+            {/* PILLAR 2: Loss Surfaces */}
+            <div className="p-3 rounded-xl bg-[#0B1020] border border-[#29374B] space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-5 h-5 rounded bg-[#F078C5]/20 border border-[#F078C5]/40 flex items-center justify-center text-[#F078C5] text-[10px] font-bold">
+                    2
+                  </div>
+                  <strong className="text-xs text-[#F078C5]">
+                    {intuitionMode ? 'Pillar 2: Mistake Valley' : 'Pillar 2: 3D Loss Landscapes'}
+                  </strong>
                 </div>
-                <div className="p-2 rounded bg-[#111A2A] border border-[#29374B]">
-                  <span className="text-[#F7C76B] font-bold block text-xs">2 Hidden</span>
-                  <span className="text-[#9DAFC3] text-[9px]">Space Folding</span>
-                </div>
-                <div className="p-2 rounded bg-[#111A2A] border border-[#29374B]">
-                  <span className="text-[#F078C5] font-bold block text-xs">1 Output</span>
-                  <span className="text-[#9DAFC3] text-[9px]">Probability (0-1)</span>
-                </div>
+                <span className="text-[9px] font-mono text-[#9DAFC3]">ℒ(w₁₁, w₂₂)</span>
               </div>
+
+              <p className="text-[11px] text-[#F4F7FB] leading-relaxed">
+                The 3D surface is a landscape of every possible knob setting. High hills = bad guesses; the deep glowing valley bottom = 100% accuracy.
+              </p>
+
+              {/* 1-Click Action to Loss 3D View */}
+              <button
+                onClick={() => {
+                  if (onNavigateView) {
+                    onNavigateView('advanced', 'loss');
+                  } else {
+                    onOpenAdvancedLab();
+                  }
+                }}
+                className="w-full py-1.5 px-2.5 rounded-lg bg-[#182438] hover:bg-[#F078C5]/20 border border-[#F078C5]/40 text-[#F078C5] text-xs font-semibold flex items-center justify-center gap-1.5 transition-all shadow-sm"
+              >
+                <Mountain className="w-3.5 h-3.5" />
+                <span>Jump to 3D Mistake Valley (Loss 3D)</span>
+              </button>
+            </div>
+
+            {/* PILLAR 3: Gradients & Backpropagation */}
+            <div className="p-3 rounded-xl bg-[#0B1020] border border-[#29374B] space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-5 h-5 rounded bg-[#F7C76B]/20 border border-[#F7C76B]/40 flex items-center justify-center text-[#F7C76B] text-[10px] font-bold">
+                    3
+                  </div>
+                  <strong className="text-xs text-[#F7C76B]">
+                    {intuitionMode ? 'Pillar 3: The Downhill Compass' : 'Pillar 3: Gradients & Backprop'}
+                  </strong>
+                </div>
+                <span className="text-[9px] font-mono text-[#9DAFC3]">∇_W ℒ</span>
+              </div>
+
+              <p className="text-[11px] text-[#F4F7FB] leading-relaxed">
+                Derivatives aren't scary—they simply tell each knob which way is "downhill" and how steep the slope is. Backprop passes this compass direction backward layer by layer.
+              </p>
+
+              {/* 1-Click Action to Gradient Flow Graph */}
+              <button
+                onClick={() => {
+                  if (onNavigateView) {
+                    onNavigateView('advanced', 'graph');
+                  } else {
+                    onOpenAdvancedLab();
+                  }
+                }}
+                className="w-full py-1.5 px-2.5 rounded-lg bg-[#182438] hover:bg-[#8B5CF6]/20 border border-[#8B5CF6]/40 text-[#A78BFA] text-xs font-semibold flex items-center justify-center gap-1.5 transition-all shadow-sm"
+              >
+                <Compass className="w-3.5 h-3.5" />
+                <span>Watch Live Gradient Pulses (Flow)</span>
+              </button>
             </div>
 
             {/* "Show the Math" Collapsible Option */}
@@ -459,7 +544,7 @@ export const GuidedStudio: React.FC<GuidedStudioProps> = ({
               >
                 <span className="flex items-center gap-1.5">
                   <Cpu className="w-3.5 h-3.5 text-[#53D4F4]" />
-                  <span>{showMathDetails ? 'Hide Formulas' : 'Show the Underlying Math'}</span>
+                  <span>{showMathDetails ? 'Hide Formal Proofs' : 'Show the Underlying Math Proofs'}</span>
                 </span>
                 {showMathDetails ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
               </button>

@@ -129,8 +129,8 @@ export const WhatJustHappenedPanel: React.FC<WhatJustHappenedPanelProps> = ({
       case 'weight_change':
       case 'matrix_change':
         return {
-          title: `Matrix Transformation W₁ Modified${lastChangedParam ? ` (${lastChangedParam})` : ''}`,
-          explore: `The coordinate grid stretched and rotated. Parallelogram area scaled by ${Math.abs(det).toFixed(2)}x${det < 0 ? ' and flipped orientation (reflection)' : ''}.`,
+          title: `Grid Stretch & Shift Knobs (W₁, b₁)${lastChangedParam ? ` — ${lastChangedParam}` : ''}`,
+          explore: `You are manually stretching and rotating the coordinate rubber sheet! Watch how changing ${lastChangedParam || 'Weight W₁'} physically warps the grid. Parallelogram area scaled by ${Math.abs(det).toFixed(2)}x${det < 0 ? ' (reflected)' : ''}.`,
           judge: (
             <span>
               Updated operator <MathView math="W_1 \in \mathbb{R}^{2 \times 2}" />. Invariants: <MathView math={`\\det(W_1) = ${det.toFixed(3)}`} />, <MathView math={`\\text{tr}(W_1) = ${trace.toFixed(3)}`} />, condition number <MathView math={`\\kappa(W_1) = ${cond > 99 ? '\\infty' : cond.toFixed(2)}`} />.

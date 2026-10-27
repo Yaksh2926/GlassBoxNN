@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { Point2D, Matrix2x2, Vector2D, NetworkWeights } from '../../math/types';
 import { LinearAlgebra } from '../../math/linearAlgebra';
 import { Activations } from '../../math/activations';
+import { LiveNarratorBanner } from '../common/LiveNarratorBanner';
 
 interface ManifoldWarper2DProps {
   weights: NetworkWeights;
@@ -18,6 +19,15 @@ interface ManifoldWarper2DProps {
   selectedPoint?: Point2D | null;
   onSelectPoint?: (pt: Point2D | null) => void;
   className?: string;
+  // Theme 5 MathX Props
+  intuitionMode?: boolean;
+  epoch?: number;
+  loss?: number;
+  accuracy?: number;
+  isTraining?: boolean;
+  lastChangedParam?: string;
+  isSingularActive?: boolean;
+  isDeadReLUActive?: boolean;
 }
 
 export const ManifoldWarper2D: React.FC<ManifoldWarper2DProps> = ({
@@ -35,10 +45,19 @@ export const ManifoldWarper2D: React.FC<ManifoldWarper2DProps> = ({
   selectedPoint = null,
   onSelectPoint,
   className = '',
+  intuitionMode = true,
+  epoch = 0,
+  loss = 0,
+  accuracy = 0,
+  isTraining = false,
+  lastChangedParam = '',
+  isSingularActive = false,
+  isDeadReLUActive = false,
 }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [hoverCoord, setHoverCoord] = useState<{ x: number; y: number } | null>(null);
+  const [showOrigamiFolds, setShowOrigamiFolds] = useState<boolean>(true);
 
   // Coordinate domain [-3.5, 3.5]
   const domain = 3.5;
@@ -327,22 +346,33 @@ export const ManifoldWarper2D: React.FC<ManifoldWarper2DProps> = ({
       drawVector(sO, sJ, '#F7C76B', 'ĵ');
     }
 
-    // 5. Activation Fold Crease Lines (tau in [1, 2])
-    if (warperMode === 'homotopy' && tau >= 0.9 && tau <= 2.2) {
-      const lines = [
-        { w: weights.W1[0], b: weights.b1[0] },
-        { w: weights.W1[1], b: weights.b1[1] },
+    // 5. Activation Fold Crease Lines (Origami Folds - Toggleable)
+    if (showOrigamiFolds && warperMode === 'homotopy' && (weights.activation === 'relu' || weights.activation === 'leaky_relu')) {
+      const creaseLines = [
+        {
+          w: weights.W1[0],
+          b: weights.b1[0],
+          color: '#8B5CF6',
+          label: intuitionMode ? '📐 Origami Crease #1 (z₁=0)' : 'Fold Line: z₁=0',
+        },
+        {
+          w: weights.W1[1],
+          b: weights.b1[1],
+          color: '#F078C5',
+          label: intuitionMode ? '📐 Origami Crease #2 (z₂=0)' : 'Fold Line: z₂=0',
+        },
       ];
 
-      lines.forEach(({ w, b }, idx) => {
+      creaseLines.forEach(({ w, b, color, label }, idx) => {
         if (Math.abs(w[0]) < 1e-4 && Math.abs(w[1]) < 1e-4) return;
         ctx.save();
         ctx.setLineDash([5, 4]);
-        ctx.strokeStyle = idx === 0 ? '#8B5CF6' : '#F078C5';
+        ctx.strokeStyle = color;
         ctx.lineWidth = 1.5;
 
         ctx.beginPath();
         const foldSamples = 40;
+        let midScreenPt: [number, number] | null = null;
         for (let s = 0; s <= foldSamples; s++) {
           const tLine = -3.5 + (s / foldSamples) * 7.0;
           let lx = 0, ly = 0;
@@ -357,8 +387,28 @@ export const ManifoldWarper2D: React.FC<ManifoldWarper2DProps> = ({
           const [sx, sy] = toScreen(mx, my);
           if (s === 0) ctx.moveTo(sx, sy);
           else ctx.lineTo(sx, sy);
+          if (s === Math.floor(foldSamples * (idx === 0 ? 0.25 : 0.75))) {
+            midScreenPt = [sx, sy];
+          }
         }
         ctx.stroke();
+
+        // Subtle pill label along crease line
+        if (midScreenPt && midScreenPt[0] > 40 && midScreenPt[0] < width - 40 && midScreenPt[1] > 40 && midScreenPt[1] < height - 40) {
+          ctx.font = 'bold 9px "JetBrains Mono", monospace';
+          const textW = ctx.measureText(label).width;
+          ctx.fillStyle = 'rgba(11, 16, 32, 0.85)';
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.roundRect(midScreenPt[0] - textW / 2 - 4, midScreenPt[1] - 7, textW + 8, 14, 3);
+          ctx.fill();
+          ctx.stroke();
+          ctx.fillStyle = color;
+          ctx.textAlign = 'center';
+          ctx.fillText(label, midScreenPt[0], midScreenPt[1] + 3);
+          ctx.textAlign = 'start';
+        }
         ctx.restore();
       });
     }
@@ -391,33 +441,113 @@ export const ManifoldWarper2D: React.FC<ManifoldWarper2DProps> = ({
       drawVector(originScreen, sAxis2, '#8B5CF6', `σ₂: ${axes.len2.toFixed(2)}`, 2);
     }
 
-    // 7. Decision Boundary Hyperplane (tau >= 1.5)
-    if (warperMode === 'homotopy' && tau >= 1.5) {
-      const w2_0 = weights.W2[0];
-      const w2_1 = weights.W2[1];
-      const b2 = weights.b2;
+    // 7. Decision Boundary Hyperplane & Gradient Nudge Arrows
+    if (warperMode === 'homotopy') {
+      const boundaryPoints: [number, number][] = [];
 
-      ctx.lineWidth = 2.0;
-      ctx.strokeStyle = '#F4F7FB';
-      ctx.beginPath();
+      if (tau >= 1.5) {
+        // Transformed space hyperplane
+        const w2_0 = weights.W2[0];
+        const w2_1 = weights.W2[1];
+        const b2 = weights.b2;
 
-      if (Math.abs(w2_1) > 1e-4) {
-        const xA = -3.5;
-        const yA = (-b2 - w2_0 * xA) / w2_1;
-        const xB = 3.5;
-        const yB = (-b2 - w2_0 * xB) / w2_1;
-        const sA = toScreen(xA, yA);
-        const sB = toScreen(xB, yB);
-        ctx.moveTo(sA[0], sA[1]);
-        ctx.lineTo(sB[0], sB[1]);
-      } else if (Math.abs(w2_0) > 1e-4) {
-        const xConst = -b2 / w2_0;
-        const sA = toScreen(xConst, -3.5);
-        const sB = toScreen(xConst, 3.5);
-        ctx.moveTo(sA[0], sA[1]);
-        ctx.lineTo(sB[0], sB[1]);
+        ctx.lineWidth = 2.0;
+        ctx.strokeStyle = '#F4F7FB';
+        ctx.beginPath();
+
+        if (Math.abs(w2_1) > 1e-4) {
+          const xA = -3.5;
+          const yA = (-b2 - w2_0 * xA) / w2_1;
+          const xB = 3.5;
+          const yB = (-b2 - w2_0 * xB) / w2_1;
+          const sA = toScreen(xA, yA);
+          const sB = toScreen(xB, yB);
+          ctx.moveTo(sA[0], sA[1]);
+          ctx.lineTo(sB[0], sB[1]);
+          boundaryPoints.push([(sA[0] + sB[0]) / 2, (sA[1] + sB[1]) / 2]);
+        } else if (Math.abs(w2_0) > 1e-4) {
+          const xConst = -b2 / w2_0;
+          const sA = toScreen(xConst, -3.5);
+          const sB = toScreen(xConst, 3.5);
+          ctx.moveTo(sA[0], sA[1]);
+          ctx.lineTo(sB[0], sB[1]);
+          boundaryPoints.push([(sA[0] + sB[0]) / 2, (sA[1] + sB[1]) / 2]);
+        }
+        ctx.stroke();
+      } else {
+        // Input space continuous decision boundary (z₂ = 0 level curve)
+        const res = 48;
+        const cellSpan = (domain * 2) / res;
+        ctx.save();
+        ctx.strokeStyle = '#F4F7FB';
+        ctx.lineWidth = 2.0;
+        ctx.shadowColor = 'rgba(83, 212, 244, 0.5)';
+        ctx.shadowBlur = 6;
+        ctx.beginPath();
+
+        const evalZ2 = (wx: number, wy: number) => {
+          const z1_0 = weights.W1[0][0] * wx + weights.W1[0][1] * wy + weights.b1[0];
+          const z1_1 = weights.W1[1][0] * wx + weights.W1[1][1] * wy + weights.b1[1];
+          const a1_0 = Activations.fn(z1_0, weights.activation);
+          const a1_1 = Activations.fn(z1_1, weights.activation);
+          return weights.W2[0] * a1_0 + weights.W2[1] * a1_1 + weights.b2;
+        };
+
+        for (let i = 0; i < res; i++) {
+          for (let j = 0; j < res; j++) {
+            const x0 = -domain + i * cellSpan;
+            const y0 = -domain + j * cellSpan;
+            const x1 = x0 + cellSpan;
+            const y1 = y0 + cellSpan;
+
+            const v00 = evalZ2(x0, y0);
+            const v10 = evalZ2(x1, y0);
+            const v01 = evalZ2(x0, y1);
+
+            // Horizontal zero crossing
+            if ((v00 > 0 && v10 <= 0) || (v00 <= 0 && v10 > 0)) {
+              const tZero = -v00 / (v10 - v00);
+              const zx = x0 + tZero * cellSpan;
+              const [mx, my] = mapPoint(zx, y0);
+              const [sx, sy] = toScreen(mx, my);
+              ctx.rect(sx - 0.75, sy - 0.75, 1.5, 1.5);
+              if (boundaryPoints.length < 3 && i % 12 === 0) {
+                boundaryPoints.push([sx, sy]);
+              }
+            }
+            // Vertical zero crossing
+            if ((v00 > 0 && v01 <= 0) || (v00 <= 0 && v01 > 0)) {
+              const tZero = -v00 / (v01 - v00);
+              const zy = y0 + tZero * cellSpan;
+              const [mx, my] = mapPoint(x0, zy);
+              const [sx, sy] = toScreen(mx, my);
+              ctx.rect(sx - 0.75, sy - 0.75, 1.5, 1.5);
+              if (boundaryPoints.length < 3 && j % 12 === 0) {
+                boundaryPoints.push([sx, sy]);
+              }
+            }
+          }
+        }
+        ctx.fillStyle = '#F4F7FB';
+        ctx.fill();
+        ctx.restore();
       }
-      ctx.stroke();
+
+      // Feature 3: Subtle Animated "Gradient Push" Nudge Arrows on the Boundary
+      if (isTraining && boundaryPoints.length > 0) {
+        boundaryPoints.slice(0, 2).forEach(([bx, by]) => {
+          if (bx < 50 || bx > width - 50 || by < 50 || by > height - 50) return;
+          const arrowLen = 18;
+          // Normal direction based on W2 weights
+          const nx = weights.W2[0];
+          const ny = weights.W2[1];
+          const norm = Math.hypot(nx, ny) || 1;
+          const dx = (nx / norm) * arrowLen;
+          const dy = -(ny / norm) * arrowLen; // Inverted for screen Y
+
+          drawVector([bx, by], [bx + dx, by + dy], '#10B981', intuitionMode ? 'Compass Nudge' : 'Gradient Push', 2);
+        });
+      }
     }
 
     // 8. Data Points (Class 0: Cyan Circle, Class 1: Pink Diamond)
@@ -476,8 +606,8 @@ export const ManifoldWarper2D: React.FC<ManifoldWarper2DProps> = ({
     ctx.lineTo(scx + 6, scy);
     ctx.moveTo(scx, scy - 6);
     ctx.lineTo(scx, scy + 6);
-    ctx.stroke();
-  }, [weights, dataset, tau, tauSVD, warperMode, showHeatmap, selectedPoint, mapPoint]);
+    // Crosshair at origin
+  }, [weights, dataset, tau, tauSVD, warperMode, showHeatmap, selectedPoint, mapPoint, showOrigamiFolds, intuitionMode, isTraining]);
 
   // Click on canvas: Select Point or Add Point
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -554,24 +684,51 @@ export const ManifoldWarper2D: React.FC<ManifoldWarper2DProps> = ({
         className="w-full h-full block cursor-crosshair"
       />
 
+      {/* Feature 2: Real-Time Live Plain-English Narrator Thought Bubble */}
+      <div className="absolute top-16 left-1/2 -translate-x-1/2 z-20 max-w-xl w-[90vw] pointer-events-auto">
+        <LiveNarratorBanner
+          epoch={epoch}
+          loss={loss}
+          accuracy={accuracy}
+          isTraining={isTraining}
+          intuitionMode={intuitionMode}
+          lastChangedParam={lastChangedParam}
+          isSingularActive={isSingularActive}
+          isDeadReLUActive={isDeadReLUActive}
+        />
+      </div>
+
       {/* Always-Visible On-Canvas Legend Badge */}
-      <div className="absolute top-16 left-6 pointer-events-none z-10 glass-pill px-3 py-1.5 rounded-lg text-[10px] font-mono text-[#9DAFC3] flex items-center gap-3">
+      <div className="absolute top-16 left-6 pointer-events-auto z-10 glass-pill px-3 py-1.5 rounded-lg text-[10px] font-mono text-[#9DAFC3] flex items-center gap-3">
         <span className="flex items-center gap-1.5">
           <span className="text-[#53D4F4]">●</span>
-          <span>Class 0</span>
+          <span>{intuitionMode ? 'Team A (Class 0)' : 'Class 0'}</span>
         </span>
         <span className="text-[#29374B]">|</span>
         <span className="flex items-center gap-1.5">
           <span className="text-[#F078C5]">◆</span>
-          <span>Class 1</span>
+          <span>{intuitionMode ? 'Team B (Class 1)' : 'Class 1'}</span>
         </span>
-        {warperMode === 'homotopy' && tau >= 1.5 && (
+        <span className="text-[#29374B]">|</span>
+        <span className="flex items-center gap-1 text-[#F4F7FB]">
+          <span className="w-2.5 h-0.5 bg-[#F4F7FB] inline-block" />
+          <span>{intuitionMode ? 'The Dividing Fence' : 'Decision Boundary'}</span>
+        </span>
+        {warperMode === 'homotopy' && (weights.activation === 'relu' || weights.activation === 'leaky_relu') && (
           <>
             <span className="text-[#29374B]">|</span>
-            <span className="flex items-center gap-1 text-[#F4F7FB]">
-              <span className="w-2.5 h-0.5 bg-[#F4F7FB] inline-block" />
-              <span>Hyperplane</span>
-            </span>
+            <button
+              onClick={() => setShowOrigamiFolds(prev => !prev)}
+              className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-semibold transition-all ${
+                showOrigamiFolds
+                  ? 'bg-[#8B5CF6]/20 text-[#A78BFA] border border-[#8B5CF6]/50 shadow-sm'
+                  : 'text-[#9DAFC3] hover:text-[#F4F7FB]'
+              }`}
+              title="Toggle Origami Crease Fold Lines"
+            >
+              <span>📐</span>
+              <span>{intuitionMode ? 'Origami Creases' : 'Fold Creases'}</span>
+            </button>
           </>
         )}
       </div>

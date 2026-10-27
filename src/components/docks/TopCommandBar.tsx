@@ -185,21 +185,25 @@ export const TopCommandBar: React.FC<TopCommandBarProps> = ({
           <span>Judge Demo</span>
         </button>
 
-        {/* Explore Mode vs Judge Mode Toggle */}
+        {/* Prominent Glowing Pill: Intuition Mode vs Full Math View Toggle */}
         <button
           onClick={onTogglePersonaMode}
-          className="h-9 px-2.5 rounded-lg border border-[#29374B] bg-[#111A2A] hover:bg-[#182438] text-xs font-mono flex items-center gap-1.5 text-[#9DAFC3] transition-colors"
-          title="Toggle between Explore Mode (Everyday Intuition) and Judge Mode (Formal Mathematics)"
+          className={`h-9 px-3 rounded-lg border text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm ${
+            personaMode === 'beginner'
+              ? 'border-[#53D4F4]/70 bg-[#182438] text-[#53D4F4] shadow-[0_0_15px_rgba(83,212,244,0.25)] ring-1 ring-[#53D4F4]/30'
+              : 'border-[#8B5CF6]/70 bg-[#182438] text-[#C4B5FD] shadow-[0_0_15px_rgba(139,92,246,0.25)] ring-1 ring-[#8B5CF6]/30'
+          }`}
+          title="Toggle between 💡 Beginner Intuition Mode (Physical Metaphors) and ∑ Full Math View (Formal Rigor)"
         >
-          {personaMode === 'judge' ? (
+          {personaMode === 'beginner' ? (
             <>
-              <GraduationCap className="w-3.5 h-3.5 text-[#53D4F4]" />
-              <span className="text-[#53D4F4] font-medium hidden sm:inline">Judge Mode</span>
+              <span className="text-sm">💡</span>
+              <span className="font-bold tracking-tight">Beginner Intuition</span>
             </>
           ) : (
             <>
-              <Sparkles className="w-3.5 h-3.5 text-[#F7C76B]" />
-              <span className="text-[#F4F7FB] font-medium hidden sm:inline">Explore Mode</span>
+              <span className="font-mono text-sm font-bold text-[#A78BFA]">∑</span>
+              <span className="font-bold tracking-tight">Full Math View</span>
             </>
           )}
         </button>
