@@ -131,7 +131,7 @@ export const LossConsoleStudio: React.FC<LossConsoleStudioProps> = ({
               onClick={onLaunchJudgeDemo}
               className="px-3.5 py-1.5 rounded-lg text-[#9E9EAF] hover:text-white transition-colors"
             >
-              Judge Demo
+              Demo
             </button>
           </div>
 

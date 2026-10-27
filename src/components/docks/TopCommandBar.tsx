@@ -9,9 +9,10 @@ import {
   LayoutGrid,
   BookMarked,
   Home,
+  GraduationCap,
 } from 'lucide-react';
 
-export type NavTab = 'cover' | 'playground' | 'loss' | 'story';
+export type NavTab = 'cover' | 'playground' | 'loss' | 'story' | 'demo';
 
 interface TopCommandBarProps {
   navTab: NavTab;
@@ -112,6 +113,19 @@ export const TopCommandBar: React.FC<TopCommandBarProps> = ({
           <BookMarked className="w-3.5 h-3.5" />
           <span>The Story</span>
         </button>
+
+        <button
+          onClick={() => onSelectNavTab('demo')}
+          className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg transition-all ${
+            navTab === 'demo'
+              ? 'bg-[#FF5E7E] text-white shadow-[0_0_12px_rgba(255,94,126,0.4)] font-bold'
+              : 'text-[#9E9EAF] hover:text-white'
+          }`}
+          title="Interactive 6-Step Demonstration"
+        >
+          <GraduationCap className="w-3.5 h-3.5" />
+          <span>Demo</span>
+        </button>
       </div>
 
       {/* Right: Intuition Toggle & Presentation Actions */}
@@ -139,14 +153,14 @@ export const TopCommandBar: React.FC<TopCommandBarProps> = ({
           )}
         </button>
 
-        {/* Judge Demo Presentation Launcher */}
+        {/* Demo Presentation Launcher */}
         <button
           onClick={onOpenDemo}
           className="h-8 px-3.5 rounded-xl btn-coral font-bold text-xs flex items-center gap-1.5 transition-all active:scale-95 shadow-[0_0_15px_rgba(255,94,126,0.35)]"
-          title="Launch Guided 6-Step Presentation Demo"
+          title="Launch Guided 6-Step Demo"
         >
           <Play className="w-3.5 h-3.5 fill-current" />
-          <span className="hidden sm:inline">Judge Demo</span>
+          <span className="hidden sm:inline">Demo</span>
         </button>
 
         {/* Mathematical Handbook Guide */}

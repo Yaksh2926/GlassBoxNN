@@ -469,7 +469,7 @@ export const BlackBoxStoryView: React.FC<BlackBoxStoryViewProps> = ({
               onClick={onLaunchJudgeDemo}
               className="px-4 py-3.5 rounded-xl border border-[#262636] bg-[#161622] hover:border-[#FF5E7E]/50 text-white font-bold text-xs transition-all active:scale-95"
             >
-              Judge Demo
+              Demo
             </button>
           </div>
         </div>

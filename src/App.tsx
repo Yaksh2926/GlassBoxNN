@@ -12,6 +12,7 @@ import { CoverPage } from './components/landing/CoverPage';
 import { ConsoleStudio } from './components/studio/ConsoleStudio';
 import { LossConsoleStudio } from './components/loss/LossConsoleStudio';
 import { BlackBoxStoryView } from './components/story/BlackBoxStoryView';
+import { DemoConsoleStudio } from './components/story/DemoConsoleStudio';
 import { SimpleStudio } from './components/studio/SimpleStudio';
 import { ManifoldWarper2D } from './components/warper/ManifoldWarper2D';
 import { LossLandscapeView } from './components/loss/LossLandscapeView';
@@ -319,7 +320,7 @@ export function App() {
         onTogglePersonaMode={() =>
           setPersonaMode(p => (p === 'beginner' ? 'judge' : 'beginner'))
         }
-        onOpenDemo={() => setIsJudgeDemoOpen(true)}
+        onOpenDemo={() => setNavTab('demo')}
         onOpenGuide={() => setIsGuideOpen(true)}
         onResetAll={handleResetAll}
       />
@@ -339,7 +340,7 @@ export function App() {
             onEnterLab={() => setNavTab('playground')}
             onExplore3DLoss={() => setNavTab('loss')}
             onReadStory={() => setNavTab('story')}
-            onLaunchJudgeDemo={() => setIsJudgeDemoOpen(true)}
+            onLaunchJudgeDemo={() => setNavTab('demo')}
           />
         )}
 
@@ -374,7 +375,7 @@ export function App() {
             onToggleIntuitionMode={() =>
               setPersonaMode(p => (p === 'beginner' ? 'judge' : 'beginner'))
             }
-            onLaunchJudgeDemo={() => setIsJudgeDemoOpen(true)}
+            onLaunchJudgeDemo={() => setNavTab('demo')}
             onSwitchToStory={() => setNavTab('story')}
             onSwitchTo3DLoss={() => setNavTab('loss')}
             lastChangedParam={lastChangedParam}
@@ -399,7 +400,7 @@ export function App() {
             onToggleIntuitionMode={() =>
               setPersonaMode(p => (p === 'beginner' ? 'judge' : 'beginner'))
             }
-            onLaunchJudgeDemo={() => setIsJudgeDemoOpen(true)}
+            onLaunchJudgeDemo={() => setNavTab('demo')}
             onSwitchToPlayground={() => setNavTab('playground')}
             onSwitchToStory={() => setNavTab('story')}
             onResetModel={handleResetNetwork}
@@ -410,7 +411,29 @@ export function App() {
           <BlackBoxStoryView
             onEnterPlayground={() => setNavTab('playground')}
             onEnter3DLoss={() => setNavTab('loss')}
-            onLaunchJudgeDemo={() => setIsJudgeDemoOpen(true)}
+            onLaunchJudgeDemo={() => setNavTab('demo')}
+          />
+        )}
+
+        {navTab === 'demo' && (
+          <DemoConsoleStudio
+            dataset={dataset}
+            weights={weights}
+            loss={currentLoss}
+            accuracy={currentAcc}
+            epoch={epoch}
+            isTraining={isTraining}
+            onToggleTraining={handleToggleTraining}
+            onResetTraining={handleResetNetwork}
+            onSelectPreset={handleSelectPreset}
+            onSetInitialUnlearnedWeights={handleSetInitialUnlearnedWeights}
+            onSwitchToPlayground={() => setNavTab('playground')}
+            onSwitchTo3DLoss={() => setNavTab('loss')}
+            onSwitchToStory={() => setNavTab('story')}
+            intuitionMode={personaMode === 'beginner'}
+            onToggleIntuitionMode={() =>
+              setPersonaMode(p => (p === 'beginner' ? 'judge' : 'beginner'))
+            }
           />
         )}
       </main>

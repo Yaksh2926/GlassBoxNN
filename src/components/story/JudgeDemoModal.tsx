@@ -88,50 +88,50 @@ export const JudgeDemoModal: React.FC<JudgeDemoModalProps> = ({
   const conditionNumber = sigma2 > 1e-4 ? sigma1 / sigma2 : 999;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 md:p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="relative w-full max-w-4xl rounded-2xl border border-[#29374B] bg-[#111A2A]/95 backdrop-blur-md shadow-2xl overflow-hidden text-[#F4F7FB]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 md:p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+      <div className="relative w-full max-w-4xl rounded-3xl border border-[#262636] bg-[#0E0E18] shadow-[0_20px_60px_rgba(0,0,0,0.85)] overflow-hidden text-[#F4F7FB]">
         {/* Top Header */}
-        <div className="flex items-center justify-between px-6 py-3.5 border-b border-[#29374B] bg-[#0B1020]/90">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[#262636] bg-[#141422]">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-[#53D4F4]/15 border border-[#53D4F4]/40 flex items-center justify-center text-[#53D4F4]">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#FF5E7E] to-[#FF4767] flex items-center justify-center text-white shadow-[0_0_12px_rgba(255,94,126,0.4)]">
               <Sparkles className="w-4 h-4" />
             </div>
             <div>
               <div className="flex items-center gap-2.5 flex-wrap">
-                <span className="text-sm font-bold text-[#F4F7FB] tracking-tight">
-                  Judge Presentation Demo
+                <span className="text-base font-black text-white tracking-tight">
+                  Interactive Demo
                 </span>
-                <span className="text-[10px] font-mono font-bold px-2.5 py-0.5 rounded-full bg-gradient-to-r from-[#53D4F4]/20 via-[#8B5CF6]/20 to-[#F078C5]/20 text-[#53D4F4] border border-[#53D4F4]/40 shadow-sm">
-                  Theme 5: Explainable AI Through Math — Interactive Proof
+                <span className="text-[10px] font-mono font-bold px-2.5 py-0.5 rounded-full bg-[#FF5E7E]/15 text-[#FF5E7E] border border-[#FF5E7E]/30">
+                  Theme 5: Explainable AI Through Math
                 </span>
               </div>
-              <span className="text-[11px] text-[#9DAFC3]">
-                Step {currentStep} of 6 • 2-Minute Interactive Pitch Path
+              <span className="text-[11px] text-[#9E9EAF]">
+                Step {currentStep} of 6 • 2-Minute Guided Walkthrough
               </span>
             </div>
           </div>
 
           <button
             onClick={onClose}
-            className="p-1.5 text-[#9DAFC3] hover:text-[#F4F7FB] rounded-lg hover:bg-[#182438] transition-colors"
-            title="Exit Demo"
+            className="p-2 text-[#9E9EAF] hover:text-white rounded-xl hover:bg-[#1E1E2C] border border-transparent hover:border-[#262636] transition-all"
+            title="Close Demo"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* 6-Step Visual Progress Bar */}
-        <div className="grid grid-cols-6 gap-1 px-6 pt-3 pb-1">
+        <div className="grid grid-cols-6 gap-1.5 px-6 pt-3 pb-1 bg-[#10101A]">
           {[1, 2, 3, 4, 5, 6].map(stepNum => (
             <button
               key={stepNum}
               onClick={() => handleStepChange(stepNum)}
               className={`h-1.5 rounded-full transition-all ${
                 stepNum === currentStep
-                  ? 'bg-[#53D4F4] shadow-sm'
+                  ? 'bg-[#FF5E7E] shadow-[0_0_8px_rgba(255,94,126,0.6)]'
                   : stepNum < currentStep
-                  ? 'bg-[#10B981]'
-                  : 'bg-[#182438]'
+                  ? 'bg-emerald-400'
+                  : 'bg-[#1E1E2C]'
               }`}
               title={`Jump to Step ${stepNum}`}
             />
@@ -749,28 +749,28 @@ export const JudgeDemoModal: React.FC<JudgeDemoModalProps> = ({
         </div>
 
         {/* Modal Footer Controls */}
-        <div className="px-6 py-3.5 border-t border-[#29374B] bg-[#0B1020]/90 flex items-center justify-between">
+        <div className="px-6 py-4 border-t border-[#262636] bg-[#141422] flex items-center justify-between">
           <button
             onClick={() => handleStepChange(Math.max(1, currentStep - 1))}
             disabled={currentStep === 1}
-            className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-all ${
+            className={`flex items-center gap-1.5 text-xs font-bold px-4 py-2 rounded-xl border transition-all ${
               currentStep === 1
-                ? 'opacity-40 cursor-not-allowed border-transparent text-[#9DAFC3]'
-                : 'border-[#29374B] bg-[#182438] text-[#F4F7FB] hover:border-[#53D4F4]/50'
+                ? 'opacity-30 cursor-not-allowed border-[#262636] text-[#9E9EAF]'
+                : 'border-[#262636] bg-[#0A0A10] text-white hover:border-[#FF5E7E]/50'
             }`}
           >
             <ChevronLeft className="w-4 h-4" />
-            <span>Previous</span>
+            <span>Previous Step</span>
           </button>
 
-          <span className="text-xs font-mono text-[#9DAFC3]">
-            {currentStep} / 6
+          <span className="text-xs font-mono text-[#9E9EAF]">
+            Step <strong className="text-white">{currentStep}</strong> of 6
           </span>
 
           {currentStep < 6 ? (
             <button
               onClick={() => handleStepChange(currentStep + 1)}
-              className="flex items-center gap-1.5 text-xs font-bold bg-[#53D4F4] text-[#0B1020] px-4 py-1.5 rounded-lg hover:bg-[#68ddfc] transition-all"
+              className="flex items-center gap-1.5 text-xs font-bold btn-coral px-5 py-2 rounded-xl transition-all active:scale-95 shadow-md"
             >
               <span>Next Step</span>
               <ChevronRight className="w-4 h-4" />
@@ -778,7 +778,7 @@ export const JudgeDemoModal: React.FC<JudgeDemoModalProps> = ({
           ) : (
             <button
               onClick={onClose}
-              className="flex items-center gap-1.5 text-xs font-bold bg-[#10B981] text-[#0B1020] px-4 py-1.5 rounded-lg hover:bg-[#25c48f] transition-all"
+              className="flex items-center gap-1.5 text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-[#0C0C12] px-5 py-2 rounded-xl transition-all active:scale-95 shadow-md"
             >
               <span>Finish Demo</span>
             </button>

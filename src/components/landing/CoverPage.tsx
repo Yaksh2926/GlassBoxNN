@@ -197,9 +197,9 @@ export const CoverPage: React.FC<CoverPageProps> = ({
 
             <button
               onClick={onLaunchJudgeDemo}
-              className="px-5 py-4 rounded-2xl border border-[#262636] bg-[#141422] hover:border-amber-400/50 text-amber-300 text-sm font-semibold transition-all"
+              className="px-5 py-4 rounded-2xl border border-[#262636] bg-[#141422] hover:border-[#FF5E7E]/50 text-white text-sm font-semibold transition-all"
             >
-              Judge Demo
+              Demo
             </button>
           </div>
 
