@@ -7,7 +7,9 @@ import {
   Vector2D,
 } from './math/types';
 import { Datasets, DatasetPreset } from './math/datasets';
-import { TopCommandBar } from './components/docks/TopCommandBar';
+import { TopCommandBar, NavTab } from './components/docks/TopCommandBar';
+import { ConsoleStudio } from './components/studio/ConsoleStudio';
+import { BlackBoxStoryView } from './components/story/BlackBoxStoryView';
 import { SimpleStudio } from './components/studio/SimpleStudio';
 import { ManifoldWarper2D } from './components/warper/ManifoldWarper2D';
 import { LossLandscapeView } from './components/loss/LossLandscapeView';
@@ -20,8 +22,8 @@ import { NeuralEngine, OptimizerState, createInitialOptimizerState } from './mat
 import confetti from 'canvas-confetti';
 
 export function App() {
-  // View mode: 'geometry' (2D Grid & Fence) | 'loss' (3D Mistake Valley)
-  const [viewMode, setViewMode] = useState<'geometry' | 'loss'>('geometry');
+  // Navigation Tab: 'playground' (Slide 2 Studio) | 'story' (Slide 1 & 3 Presentation) | 'loss' (3D Loss Landscape)
+  const [navTab, setNavTab] = useState<NavTab>('playground');
 
   // Dual persona: 'beginner' (Default Intuition Mode) | 'judge' (Full Math View)
   const [personaMode, setPersonaMode] = useState<'beginner' | 'judge'>('beginner');
@@ -306,11 +308,11 @@ export function App() {
   const isDeadReLUActive = weights.b1[0] <= -3.0 && weights.b1[1] <= -3.0;
 
   return (
-    <div className="relative w-screen h-screen overflow-hidden bg-[#0B1020] text-[#F4F7FB] select-none font-sans">
-      {/* 1. Sleek Top Navigation Bar with 2D Grid / 3D Loss View Switcher */}
+    <div className="relative w-screen h-screen overflow-hidden bg-[#0C0C12] text-[#F4F7FB] select-none font-sans flex flex-col">
+      {/* 1. Sleek Top Navigation Bar with Presentation Tabs */}
       <TopCommandBar
-        viewMode={viewMode}
-        onSelectViewMode={setViewMode}
+        navTab={navTab}
+        onSelectNavTab={setNavTab}
         personaMode={personaMode}
         onTogglePersonaMode={() =>
           setPersonaMode(p => (p === 'beginner' ? 'judge' : 'beginner'))
@@ -318,8 +320,6 @@ export function App() {
         onOpenDemo={() => setIsJudgeDemoOpen(true)}
         onOpenGuide={() => setIsGuideOpen(true)}
         onResetAll={handleResetAll}
-        isLeftPanelOpen={isLeftPanelOpen}
-        onToggleLeftPanel={() => setIsLeftPanelOpen(!isLeftPanelOpen)}
       />
 
       {/* 2. Sliding Theorem Toast HUD for Failure Modes */}
@@ -330,88 +330,97 @@ export function App() {
         intuitionMode={personaMode === 'beginner'}
       />
 
-      {/* 3. Central Viewport: 2D Manifold Grid or 3D Loss Landscape */}
-      {viewMode === 'geometry' ? (
-        <div className="fixed inset-0 w-screen h-screen">
-          <ManifoldWarper2D
-            weights={weights}
+      {/* 3. Main Viewport Container */}
+      <main className="flex-1 overflow-y-auto overflow-x-hidden relative">
+        {navTab === 'playground' && (
+          <ConsoleStudio
+            currentPreset={currentPreset}
+            onSelectPreset={handleSelectPreset}
             dataset={dataset}
-            tau={tau}
-            onChangeTau={updater => setTau(updater)}
-            tauSVD={0}
-            onChangeTauSVD={() => {}}
-            warperMode="homotopy"
-            onChangeWarperMode={() => {}}
-            onAddPoint={handleAddPoint}
+            setDataset={setDataset}
             activeClass={activeClass}
-            showHeatmap={showHeatmap}
-            selectedPoint={selectedPoint}
-            onSelectPoint={pt => setSelectedPoint(pt)}
-            intuitionMode={personaMode === 'beginner'}
+            onSetActiveClass={setActiveClass}
+            onAddPoint={handleAddPoint}
+            onUndoPoint={handleUndoPoint}
+            onClearDataset={handleClearDataset}
+            weights={weights}
+            onChangeW1={handleUpdateW1}
+            onChangeB1={handleUpdateB1}
+            isTraining={isTraining}
+            onToggleTraining={handleToggleTraining}
+            onStepOnce={handleStepOnce}
+            onResetModel={handleResetNetwork}
             epoch={epoch}
             loss={currentLoss}
             accuracy={currentAcc}
-            isTraining={isTraining}
-            lastChangedParam={lastChangedParam}
+            tau={tau}
+            onChangeTau={setTau}
+            onTriggerSingularMatrix={handleTriggerSingularMatrix}
+            onTriggerDeadReLU={handleTriggerDeadReLU}
             isSingularActive={isSingularActive}
             isDeadReLUActive={isDeadReLUActive}
-            className="w-full h-full"
+            intuitionMode={personaMode === 'beginner'}
+            onToggleIntuitionMode={() =>
+              setPersonaMode(p => (p === 'beginner' ? 'judge' : 'beginner'))
+            }
+            onLaunchJudgeDemo={() => setIsJudgeDemoOpen(true)}
+            onSwitchToStory={() => setNavTab('story')}
+            onSwitchTo3DLoss={() => setNavTab('loss')}
+            lastChangedParam={lastChangedParam}
           />
-        </div>
-      ) : (
-        <div className="fixed inset-0 w-screen h-screen pt-16 pb-3 px-4 z-20 flex items-center justify-center bg-[#0B1020]">
-          <LossLandscapeView
-            dataset={dataset}
-            weights={weights}
-            onSelectParam={(p1, p2) => {
-              setWeights(w => ({
-                ...w,
-                W1: [
-                  [p1, w.W1[0][1]],
-                  [w.W1[1][0], p2],
-                ],
-              }));
-              setLastChangedParam('3D Loss Surface Parameter');
-            }}
-            className="w-full max-w-6xl h-full max-h-[88vh]"
+        )}
+
+        {navTab === 'story' && (
+          <BlackBoxStoryView
+            onEnterPlayground={() => setNavTab('playground')}
+            onEnter3DLoss={() => setNavTab('loss')}
+            onLaunchJudgeDemo={() => setIsJudgeDemoOpen(true)}
           />
-        </div>
-      )}
+        )}
 
-      {/* 4. Unified Simple & Attractive Tactile Control Studio */}
-      {isLeftPanelOpen && (
-        <SimpleStudio
-          currentPreset={currentPreset}
-          onSelectPreset={handleSelectPreset}
-          dataset={dataset}
-          activeClass={activeClass}
-          onSetActiveClass={setActiveClass}
-          onUndoPoint={handleUndoPoint}
-          onClearDataset={handleClearDataset}
-          weights={weights}
-          onChangeW1={handleUpdateW1}
-          onChangeB1={handleUpdateB1}
-          isTraining={isTraining}
-          onToggleTraining={handleToggleTraining}
-          onStepOnce={handleStepOnce}
-          onResetModel={handleResetNetwork}
-          epoch={epoch}
-          loss={currentLoss}
-          accuracy={currentAcc}
-          tau={tau}
-          onChangeTau={setTau}
-          onTriggerSingularMatrix={handleTriggerSingularMatrix}
-          onTriggerDeadReLU={handleTriggerDeadReLU}
-          isSingularActive={isSingularActive}
-          isDeadReLUActive={isDeadReLUActive}
-          intuitionMode={personaMode === 'beginner'}
-          onLaunchJudgeDemo={() => setIsJudgeDemoOpen(true)}
-          viewMode={viewMode}
-          onToggleViewMode={() => setViewMode(v => (v === 'geometry' ? 'loss' : 'geometry'))}
-        />
-      )}
+        {navTab === 'loss' && (
+          <div className="w-full h-full min-h-[calc(100vh-60px)] p-4 md:p-6 flex flex-col items-center justify-center bg-[#0C0C14]">
+            <div className="w-full max-w-6xl flex items-center justify-between mb-3">
+              <div>
+                <h2 className="text-xl md:text-2xl font-black text-white flex items-center gap-2">
+                  <span>3D Loss Mistake Valley</span>
+                  <span className="text-xs font-mono px-2 py-0.5 rounded-full bg-[#FF5E7E]/20 text-[#FF5E7E] border border-[#FF5E7E]/40">
+                    Three.js 60fps
+                  </span>
+                </h2>
+                <p className="text-xs text-[#9E9EAF]">
+                  Explore the binary cross-entropy loss landscape. Drag to rotate, scroll to zoom.
+                </p>
+              </div>
 
-      {/* 5. 6-Step Presentation-Ready Judge Demo Modal */}
+              <button
+                onClick={() => setNavTab('playground')}
+                className="px-3.5 py-1.5 rounded-xl border border-[#262636] bg-[#141422] hover:border-[#FF5E7E]/50 text-white text-xs font-bold transition-all"
+              >
+                Back to Playground ➔
+              </button>
+            </div>
+
+            <LossLandscapeView
+              dataset={dataset}
+              weights={weights}
+              onSelectParam={(p1, p2) => {
+                setWeights(w => ({
+                  ...w,
+                  W1: [
+                    [p1, w.W1[0][1]],
+                    [w.W1[1][0], p2],
+                  ],
+                }));
+                setLastChangedParam('3D Loss Surface Parameter');
+              }}
+              className="w-full max-w-6xl h-[75vh]"
+            />
+          </div>
+        )}
+      </main>
+
+      {/* 4. 6-Step Presentation-Ready Judge Demo Modal */}
       <JudgeDemoModal
         isOpen={isJudgeDemoOpen}
         onClose={() => setIsJudgeDemoOpen(false)}
@@ -426,12 +435,11 @@ export function App() {
         onSelectPreset={handleSelectPreset}
         onSetInitialUnlearnedWeights={handleSetInitialUnlearnedWeights}
         onTransitionToAdvancedLab={() => {
-          setViewMode('loss');
-          setIsLeftPanelOpen(true);
+          setNavTab('loss');
         }}
       />
 
-      {/* 6. Handbooks & Mathematical Proof Modals */}
+      {/* 5. Handbooks & Mathematical Proof Modals */}
       <MathGuideModal isOpen={isGuideOpen} onClose={() => setIsGuideOpen(false)} />
       <SingularProofModal
         isOpen={isSingularProofOpen}
