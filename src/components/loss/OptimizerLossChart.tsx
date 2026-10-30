@@ -1,7 +1,6 @@
 import React from 'react';
 import { OptimizerType, RaceResult } from '../../math/types';
-import { MathView } from '../common/MathView';
-import { TrendingDown, Trophy, Zap, AlertCircle } from 'lucide-react';
+import { TrendingDown, Trophy, Zap, AlertCircle, Sparkles } from 'lucide-react';
 
 interface OptimizerLossChartProps {
   raceData: Record<OptimizerType, RaceResult> | null;
@@ -16,8 +15,9 @@ export const OptimizerLossChart: React.FC<OptimizerLossChartProps> = ({
 }) => {
   if (!raceData) {
     return (
-      <div className="bg-[#131B2E] p-3 rounded-lg border border-[#2A374F] text-center text-xs font-mono text-slate-400">
-        Click anywhere on the loss surface to drop balls and start the optimizer race!
+      <div className="p-4 rounded-2xl bg-[#0E0E18] border border-[#262636] text-center text-xs font-sans text-[#9E9EAF] flex items-center justify-center gap-2">
+        <Sparkles className="w-4 h-4 text-[#FF5E7E]" />
+        <span>Click anywhere on the loss surface to drop balls and start the optimizer race!</span>
       </div>
     );
   }
@@ -36,12 +36,12 @@ export const OptimizerLossChart: React.FC<OptimizerLossChartProps> = ({
   });
 
   const lossRange = Math.max(1e-4, maxLoss - minLoss);
-  const chartWidth = 460;
-  const chartHeight = 110;
-  const padLeft = 35;
-  const padRight = 15;
+  const chartWidth = 520;
+  const chartHeight = 120;
+  const padLeft = 40;
+  const padRight = 20;
   const padTop = 15;
-  const padBottom = 22;
+  const padBottom = 24;
 
   const plotW = chartWidth - padLeft - padRight;
   const plotH = chartHeight - padTop - padBottom;
@@ -72,92 +72,99 @@ export const OptimizerLossChart: React.FC<OptimizerLossChartProps> = ({
   // Determine current leader
   let leaderName = 'SGD';
   let leaderLoss = curSGD;
-  let leaderColor = '#00F5D4';
+  let leaderColor = '#53D4F4';
 
   if (curAdam <= curSGD && curAdam <= curMom) {
     leaderName = 'Adam';
     leaderLoss = curAdam;
-    leaderColor = '#FF2A85';
+    leaderColor = '#FF5E7E';
   } else if (curMom <= curSGD && curMom <= curAdam) {
     leaderName = 'Momentum';
     leaderLoss = curMom;
-    leaderColor = '#F59E0B';
+    leaderColor = '#F7C76B';
   }
 
+  const isCompleted = currentStep >= totalSteps;
+
   return (
-    <div className="bg-[#131B2E] p-2.5 rounded-lg border border-[#2A374F] font-mono text-xs space-y-2">
+    <div className="p-4 rounded-2xl bg-[#0E0E18] border border-[#262636] font-sans space-y-3">
       {/* Header & Leader Banner */}
-      <div className="flex items-center justify-between text-[11px]">
-        <div className="flex items-center gap-1.5 text-slate-200 font-semibold">
-          <TrendingDown className="w-3.5 h-3.5 text-cyber-cyan" />
+      <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+        <div className="flex items-center gap-2 text-white font-semibold">
+          <TrendingDown className="w-4 h-4 text-[#FF5E7E]" />
           <span>Real-Time Loss vs. Epoch Curves:</span>
         </div>
 
-        <div className="flex items-center gap-1.5 text-[10px]">
-          <Trophy className="w-3 h-3 text-cyber-amber" />
-          <span className="text-slate-400">Current Leader:</span>
-          <span style={{ color: leaderColor }} className="font-bold">
+        <div className="flex items-center gap-2">
+          <span className="text-[#9E9EAF] text-xs">
+            {isCompleted ? '🏆 Final Winner:' : 'Leading Optimizer:'}
+          </span>
+          <span
+            style={{ color: leaderColor, borderColor: `${leaderColor}50`, backgroundColor: `${leaderColor}15` }}
+            className="px-2.5 py-0.5 rounded-full font-bold font-mono text-xs border shadow-sm flex items-center gap-1.5"
+          >
+            <Trophy className="w-3 h-3" />
             {leaderName} (ℒ = {leaderLoss.toFixed(4)})
           </span>
         </div>
       </div>
 
-      {/* SVG Chart */}
-      <div className="relative bg-[#0B101D] rounded border border-[#1E2D4A] p-1 flex justify-center">
+      {/* SVG Loss Curve Chart */}
+      <div className="relative bg-[#0C0C14] rounded-xl border border-[#262636] p-2 flex justify-center overflow-hidden">
         <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} className="w-full h-auto">
-          {/* Grid lines */}
+          {/* Subtle Grid lines */}
           <line
             x1={padLeft}
             y1={padTop}
             x2={chartWidth - padRight}
             y2={padTop}
-            stroke="#1E2D4A"
-            strokeDasharray="2,2"
+            stroke="#262636"
+            strokeDasharray="3,3"
           />
           <line
             x1={padLeft}
             y1={padTop + plotH / 2}
             x2={chartWidth - padRight}
             y2={padTop + plotH / 2}
-            stroke="#1E2D4A"
-            strokeDasharray="2,2"
+            stroke="#262636"
+            strokeDasharray="3,3"
           />
           <line
             x1={padLeft}
             y1={padTop + plotH}
             x2={chartWidth - padRight}
             y2={padTop + plotH}
-            stroke="#1E2D4A"
+            stroke="#262636"
           />
 
-          {/* Y Axis Labels */}
+          {/* Y Axis Loss Labels */}
           <text
-            x={padLeft - 4}
+            x={padLeft - 6}
             y={padTop + 4}
-            fill="#64748B"
-            fontSize="8"
+            fill="#9E9EAF"
+            fontSize="9"
             textAnchor="end"
             fontFamily="monospace"
           >
             {maxLoss.toFixed(2)}
           </text>
           <text
-            x={padLeft - 4}
+            x={padLeft - 6}
             y={padTop + plotH}
-            fill="#64748B"
-            fontSize="8"
+            fill="#9E9EAF"
+            fontSize="9"
             textAnchor="end"
             fontFamily="monospace"
           >
             {minLoss.toFixed(2)}
           </text>
 
-          {/* X Axis Labels */}
+          {/* X Axis Epoch Labels */}
           <text
             x={padLeft}
             y={chartHeight - 4}
-            fill="#64748B"
-            fontSize="8"
+            fill="#9E9EAF"
+            fontSize="9"
             textAnchor="start"
             fontFamily="monospace"
           >
@@ -166,8 +173,8 @@ export const OptimizerLossChart: React.FC<OptimizerLossChartProps> = ({
           <text
             x={padLeft + plotW / 2}
             y={chartHeight - 4}
-            fill="#64748B"
-            fontSize="8"
+            fill="#9E9EAF"
+            fontSize="9"
             textAnchor="middle"
             fontFamily="monospace"
           >
@@ -176,61 +183,61 @@ export const OptimizerLossChart: React.FC<OptimizerLossChartProps> = ({
           <text
             x={chartWidth - padRight}
             y={chartHeight - 4}
-            fill="#64748B"
-            fontSize="8"
+            fill="#9E9EAF"
+            fontSize="9"
             textAnchor="end"
             fontFamily="monospace"
           >
             Ep {totalSteps}
           </text>
 
-          {/* Ghost Full Trajectories (faded in background) */}
+          {/* Ghost Full Trajectories (faint guide in background) */}
           <path
             d={getPathD(sgdSteps, totalSteps)}
             fill="none"
-            stroke="#00F5D4"
-            strokeWidth="1"
-            opacity="0.2"
+            stroke="#53D4F4"
+            strokeWidth="1.5"
+            opacity="0.18"
           />
           <path
             d={getPathD(momSteps, totalSteps)}
             fill="none"
-            stroke="#F59E0B"
-            strokeWidth="1"
-            opacity="0.2"
+            stroke="#F7C76B"
+            strokeWidth="1.5"
+            opacity="0.18"
           />
           <path
             d={getPathD(adamSteps, totalSteps)}
             fill="none"
-            stroke="#FF2A85"
-            strokeWidth="1"
-            opacity="0.2"
+            stroke="#FF5E7E"
+            strokeWidth="1.5"
+            opacity="0.18"
           />
 
           {/* Active Animated Paths up to currentStep */}
           <path
             d={getPathD(sgdSteps, currentStep)}
             fill="none"
-            stroke="#00F5D4"
-            strokeWidth="2"
+            stroke="#53D4F4"
+            strokeWidth="2.5"
             strokeLinecap="round"
           />
           <path
             d={getPathD(momSteps, currentStep)}
             fill="none"
-            stroke="#F59E0B"
-            strokeWidth="2"
+            stroke="#F7C76B"
+            strokeWidth="2.5"
             strokeLinecap="round"
           />
           <path
             d={getPathD(adamSteps, currentStep)}
             fill="none"
-            stroke="#FF2A85"
-            strokeWidth="2"
+            stroke="#FF5E7E"
+            strokeWidth="2.8"
             strokeLinecap="round"
           />
 
-          {/* Current Step Vertical Marker */}
+          {/* Vertical Current Scrubber Cursor Line */}
           {currentStep > 0 && (
             <line
               x1={toX(curIdx)}
@@ -239,37 +246,37 @@ export const OptimizerLossChart: React.FC<OptimizerLossChartProps> = ({
               y2={padTop + plotH}
               stroke="#FFFFFF"
               strokeDasharray="2,2"
-              strokeWidth="1"
+              strokeWidth="1.5"
               opacity="0.6"
             />
           )}
 
-          {/* Glowing Lead Points */}
+          {/* Glowing Lead Points at head */}
           {currentStep > 0 && (
             <>
               <circle
                 cx={toX(curIdx)}
                 cy={toY(curSGD)}
-                r="3.5"
-                fill="#00F5D4"
+                r="4"
+                fill="#53D4F4"
                 stroke="#FFFFFF"
-                strokeWidth="1"
+                strokeWidth="1.5"
               />
               <circle
                 cx={toX(curIdx)}
                 cy={toY(curMom)}
-                r="3.5"
-                fill="#F59E0B"
+                r="4"
+                fill="#F7C76B"
                 stroke="#FFFFFF"
-                strokeWidth="1"
+                strokeWidth="1.5"
               />
               <circle
                 cx={toX(curIdx)}
                 cy={toY(curAdam)}
-                r="3.5"
-                fill="#FF2A85"
+                r="4.5"
+                fill="#FF5E7E"
                 stroke="#FFFFFF"
-                strokeWidth="1"
+                strokeWidth="1.5"
               />
             </>
           )}
@@ -277,32 +284,32 @@ export const OptimizerLossChart: React.FC<OptimizerLossChartProps> = ({
       </div>
 
       {/* Live Metric Badges for each Optimizer at currentStep */}
-      <div className="grid grid-cols-3 gap-2 text-[10px] pt-1">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
         {/* SGD Chip */}
-        <div className="bg-[#0B101D] p-1.5 rounded border border-[#1E2D4A] flex items-center justify-between">
-          <div className="flex items-center gap-1">
-            <span className="w-2 h-2 rounded-full bg-cyber-cyan" />
-            <span className="text-cyber-cyan font-bold">SGD:</span>
+        <div className="bg-[#141422] p-2 rounded-xl border border-[#262636] flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#53D4F4] shadow-[0_0_6px_#53D4F4]" />
+            <span className="text-[#53D4F4] font-bold">SGD:</span>
           </div>
-          <span className="text-slate-200 font-semibold">{curSGD.toFixed(4)}</span>
+          <span className="font-mono text-white font-semibold">ℒ = {curSGD.toFixed(4)}</span>
         </div>
 
         {/* Momentum Chip */}
-        <div className="bg-[#0B101D] p-1.5 rounded border border-[#1E2D4A] flex items-center justify-between">
-          <div className="flex items-center gap-1">
-            <span className="w-2 h-2 rounded-full bg-cyber-amber" />
-            <span className="text-cyber-amber font-bold">Momentum:</span>
+        <div className="bg-[#141422] p-2 rounded-xl border border-[#262636] flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#F7C76B] shadow-[0_0_6px_#F7C76B]" />
+            <span className="text-[#F7C76B] font-bold">Momentum:</span>
           </div>
-          <span className="text-slate-200 font-semibold">{curMom.toFixed(4)}</span>
+          <span className="font-mono text-white font-semibold">ℒ = {curMom.toFixed(4)}</span>
         </div>
 
         {/* Adam Chip */}
-        <div className="bg-[#0B101D] p-1.5 rounded border border-[#1E2D4A] flex items-center justify-between">
-          <div className="flex items-center gap-1">
-            <span className="w-2 h-2 rounded-full bg-cyber-magenta" />
-            <span className="text-cyber-magenta font-bold">Adam:</span>
+        <div className="bg-[#141422] p-2 rounded-xl border border-[#262636] flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#FF5E7E] shadow-[0_0_6px_#FF5E7E]" />
+            <span className="text-[#FF5E7E] font-bold">Adam:</span>
           </div>
-          <span className="text-slate-200 font-semibold">{curAdam.toFixed(4)}</span>
+          <span className="font-mono text-white font-semibold">ℒ = {curAdam.toFixed(4)}</span>
         </div>
       </div>
     </div>

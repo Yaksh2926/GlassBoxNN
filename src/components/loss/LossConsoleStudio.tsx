@@ -164,6 +164,7 @@ export const LossConsoleStudio: React.FC<LossConsoleStudioProps> = ({
             dataset={dataset}
             weights={weights}
             onSelectParam={onSelectParam}
+            intuitionMode={intuitionMode}
             className="w-full bg-[#141422] border border-[#262636] rounded-2xl shadow-none"
           />
         </div>
