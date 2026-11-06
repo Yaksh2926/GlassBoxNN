@@ -156,28 +156,3 @@ npm run preview
 
 ---
 
-## 6. Recommended 3-Minute Live Hackathon Pitch Sequence for MathX Judges
-
-1. **Step 1: The XOR Impossibility (0:00 - 0:40)**
-   - Click **Step 1** on the top pitch tour bar.
-   - Explain why Minsky & Papert's 1969 proof demonstrated that linear models fail on XOR: no affine hyperplane $w^T x + b = 0$ can separate diagonal coordinates in $\mathbb{R}^2$.
-2. **Step 2: Linear Algebra & Rank Collapse (0:40 - 1:15)**
-   - Click **Step 2** or select the **Rank Collapse Preset** in the Matrix Editor.
-   - Show how $\det(W_1) = 0$ crushes the 2D Cartesian plane into a 1D line, permanently destroying classification capacity. Point out the Live Spectral HUD and condition number.
-3. **Step 3: Space Folding via Non-Linear Activations (1:15 - 1:55)**
-   - Click **Step 3** and press **"Play Folding"** or drag the Homotopy Scrubber $\tau$ from $1 \to 2$.
-   - Show how ReLU creases the manifold along negative preactivations, untangling the XOR points so they become linearly separable (Cover's Theorem).
-4. **Step 4: 3D Loss Landscapes & Optimizer Race (1:55 - 2:35)**
-   - Switch to the **3D Loss Landscape** tab.
-   - Explain the Hessian eigenvalues $\mu_1, \mu_2$ and click **"Race Optimizers"** to show SGD, Momentum, and Adam racing down the parameter valley.
-5. **Step 5: The Chain Rule Engine & Live Backprop (2:35 - 3:00)**
-   - Switch to the **Chain Rule Graph** tab.
-   - Hover over $w_{11}$ to show the exact multivariable calculus chain formula and live floating-point factor products multiplying together. Show how a Dead ReLU extinguishes gradients.
-
----
-
-## 7. License & Credits
-
-Built for **MathX: A New Dimension of Mathematics**  
-Organized by the **Infinity Society**, Guru Tegh Bahadur Institute of Technology (GTBIT).  
-Developed with pure mathematics, TypeScript, React, and Three.js.
